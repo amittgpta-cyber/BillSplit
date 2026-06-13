@@ -8,7 +8,6 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
@@ -19,340 +18,156 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useCallback } = React;
+        const { useState, useMemo, useCallback } = React;
 
-        const CATEGORIES = ['Food Delivery', 'Dining', 'Groceries', 'Utilities', 'Shopping', 'Travel', 'Subscriptions', 'Cook Salary', 'Cleaner Salary', 'Car Wash', 'Electricity Bill', 'Broadband Bill', 'Nanny Salary', 'Monthly Rent', 'Society Maintenance', 'Home Loan EMI', 'TDS on Loan', 'Refund/Cashback', 'Adhoc'];
-        
         const CARDS = ['HDFC Regalia Gold', 'HDFC Swiggy', 'ICICI Sapphiro', 'ICICI Coral RuPay', 'SBI SimplyCLICK', 'Tata Neu Infinity', 'Bank of Baroda Eterna', 'Scapia', 'Amazon Pay ICICI', 'Axis Airtel', 'IndusInd EazyDiner', 'Amex Platinum Travel', 'Cash/UPI'];
 
         const App = () => {
             const [view, setView] = useState('dashboard');
-            const [transactions, setTransactions] = useState([]);
-            const [isSyncing, setIsSyncing] = useState(false);
+            const [bills, setBills] = useState([]);
 
             // Settings State
-            const [scriptUrl, setScriptUrl] = useState(() => localStorage.getItem('bs_script_url') || '');
             const [user1Name, setUser1Name] = useState(() => localStorage.getItem('bs_user1_name') || 'Amit');
             const [user2Name, setUser2Name] = useState(() => localStorage.getItem('bs_user2_name') || 'Alka');
 
-            // Form Entry States
-            const [uploadCard, setUploadCard] = useState(CARDS[0]);
-            const [manualEntry, setManualEntry] = useState({
-                date: new Date().toISOString().split('T')[0],
-                description: '',
-                amount: '',
-                category: CATEGORIES[0],
-                card: CARDS[0]
-            });
+            // Form Entry State
+            const [activeCard, setActiveCard] = useState(CARDS[0]);
+            const [activeTotal, setActiveTotal] = useState('');
+            const [activeOverrides, setActiveOverrides] = useState([]); // {id, desc, amount, owner}
 
-            // Rules Engine
+            // Rules Engine for Default Card Ownership
             const rules = useMemo(() => {
                 return {
                     cards: {
                         'HDFC Swiggy': user2Name,
                         'Axis Airtel': user1Name
-                    },
-                    categories: {
-                        'Subscriptions': user1Name,
-                        'Cook Salary': user1Name,
-                        'Cleaner Salary': user1Name,
-                        'Car Wash': user1Name,
-                        'Electricity Bill': user1Name,
-                        'Broadband Bill': user1Name,
-                        'Nanny Salary': 'Split',
-                        'Monthly Rent': 'Split',
-                        'Society Maintenance': 'Split',
-                        'Home Loan EMI': 'Split',
-                        'TDS on Loan': 'Split'
                     }
                 };
             }, [user1Name, user2Name]);
 
-            const determineOwner = useCallback((card, category) => {
-                if (rules.cards[card]) return rules.cards[card];
-                if (rules.categories[category]) return rules.categories[category];
-                return 'Split';
-            }, [rules]);
-
-            const saveSettings = (url, u1, u2) => {
-                localStorage.setItem('bs_script_url', url);
+            const saveSettings = (u1, u2) => {
                 localStorage.setItem('bs_user1_name', u1);
                 localStorage.setItem('bs_user2_name', u2);
-                setScriptUrl(url);
                 setUser1Name(u1);
                 setUser2Name(u2);
-                alert('Settings saved locally.');
+                alert('Names updated successfully.');
                 setView('dashboard');
             };
 
-            // THE OMNI-PARSER
-            const handleFileUpload = async (e, targetCard) => {
-                const files = Array.from(e.target.files);
-                if (files.length === 0) return;
-
-                let allParsedTxns = [];
-
-                const processData = (textData, fileName) => {
-                    const parsedTxns = [];
-                    const lines = textData.split('\n');
-                    
-                    // Regex to find a date (e.g., 02/05/2026 or 02-05-2026)
-                    const dateRegex = /(\d{2}[\/\-]\d{2}[\/\-]\d{4})/;
-
-                    lines.forEach(line => {
-                        // 1. Clean up HDFC's messy comma padding (e.g., changing ",,,," to just ",")
-                        // Also handles the weird ~|~ format
-                        let cleanLine = line.replace(/~\|~/g, ',');
-                        cleanLine = cleanLine.replace(/,+/g, ','); // Collapse multiple commas into one
-                        cleanLine = cleanLine.replace(/"/g, '');   // Remove quotes
-                        
-                        const columns = cleanLine.split(',').map(c => c.trim()).filter(c => c !== '');
-                        
-                        if (columns.length < 3) return; // Not enough data to be a transaction row
-
-                        // 2. Look for the Date
-                        let dateStr = "";
-                        let dateIdx = -1;
-                        for (let i = 0; i < columns.length; i++) {
-                            const match = columns[i].match(dateRegex);
-                            if (match) {
-                                dateStr = match[1]; // Grab just the date part, ignore time
-                                dateIdx = i;
-                                break;
-                            }
-                        }
-
-                        // If no date is found, this is a header or junk row
-                        if (dateIdx === -1) return;
-
-                        // 3. Look for the Amount (Usually the last or second-to-last valid number)
-                        let amt = 0;
-                        let amtIdx = -1;
-                        
-                        // Search backwards for the amount
-                        for (let i = columns.length - 1; i > dateIdx; i--) {
-                            // Strip out valid currency characters
-                            const potentialAmtStr = columns[i].replace(/[^0-9.-]+/g, '');
-                            const potentialAmt = parseFloat(potentialAmtStr);
-                            
-                            // If it's a valid number and not a tiny number (like NeuCoins "+ 5")
-                            if (!isNaN(potentialAmt) && potentialAmtStr.length > 0) {
-                                // HDFC NeuCard puts NeuCoins right before the amount. Let's assume the highest number near the end is the amount
-                                if (potentialAmt > amt) {
-                                    amt = potentialAmt;
-                                    amtIdx = i;
-                                }
-                            }
-                        }
-                        
-                        if (amt === 0 || amtIdx === -1) return;
-
-                        // 4. Look for Credit/Payment flag ("Cr")
-                        let isCredit = false;
-                        const lastCol = columns[columns.length - 1].toUpperCase();
-                        if (lastCol === 'CR' || lastCol.includes('CR')) {
-                            isCredit = true;
-                        }
-
-                        // 5. Grab the Description (Everything between the Date and the Amount)
-                        let descParts = [];
-                        for (let i = dateIdx + 1; i < amtIdx; i++) {
-                            // Filter out NeuCoin indicators like "+ 5" or "- 5"
-                            if (!columns[i].match(/^[\+\-]\s*\d+$/)) {
-                                descParts.push(columns[i]);
-                            }
-                        }
-                        const desc = descParts.join(' ').trim() || 'Unknown Transaction';
-                        const descLower = desc.toLowerCase();
-
-                        // 6. Final Filters
-                        const isPayment = descLower.includes('payment') || descLower.includes('autopay') || descLower.includes('netbanking');
-
-                        if (amt > 0 && !isPayment) {
-                            const finalAmt = isCredit ? -Math.abs(amt) : Math.abs(amt);
-                            
-                            parsedTxns.push({
-                                id: crypto.randomUUID(),
-                                date: dateStr.replace(/\-/g, '/'), // Standardize to DD/MM/YYYY
-                                description: desc,
-                                amount: finalAmt,
-                                category: isCredit ? 'Refund/Cashback' : 'Adhoc',
-                                card: targetCard,
-                                type: 'Credit Card',
-                                owner: determineOwner(targetCard, isCredit ? 'Refund/Cashback' : 'Adhoc'),
-                                source: fileName
-                            });
-                        }
-                    });
-
-                    allParsedTxns = [...allParsedTxns, ...parsedTxns];
-                };
-
-                for (const file of files) {
-                    const fileExtension = file.name.split('.').pop().toLowerCase();
-
-                    if (fileExtension === 'csv' || fileExtension === 'xls' || fileExtension === 'xlsx') {
-                         await new Promise((resolve) => {
-                            const reader = new FileReader();
-                            reader.onload = (evt) => {
-                                // Even if it's named .xls, if it's actually CSV under the hood, readAsText works perfectly
-                                const text = evt.target.result;
-                                
-                                // Fallback: If it's a TRUE binary Excel file, text will look like garbage (starts with PK or ÐÏ)
-                                if (text.startsWith('PK') || text.charCodeAt(0) === 208) {
-                                    const wb = XLSX.read(text, { type: 'binary' });
-                                    const wsname = wb.SheetNames[0];
-                                    const ws = wb.Sheets[wsname];
-                                    // Convert binary Excel back to a flat CSV string for our Omni-Parser
-                                    const csvString = XLSX.utils.sheet_to_csv(ws);
-                                    processData(csvString, file.name);
-                                } else {
-                                    // It's a text file (CSV or HDFC's fake XLS)
-                                    processData(text, file.name);
-                                }
-                                resolve();
-                            };
-                            // Read everything as text first to handle HDFC's fake XLS files
-                            reader.readAsBinaryString(file); 
-                        });
-                    }
-                }
-
-                if (allParsedTxns.length === 0) {
-                    alert("No valid transactions found. Make sure you are uploading a bank statement CSV or Excel file.");
-                } else {
-                    setTransactions(prev => [...prev, ...allParsedTxns]);
-                    e.target.value = null; 
-                    setView('transactions');
-                }
+            // Form Actions
+            const addOverrideRow = () => {
+                setActiveOverrides([...activeOverrides, { id: crypto.randomUUID(), desc: '', amount: '', owner: user1Name }]);
             };
 
-            const addManualEntry = (e) => {
+            const updateOverride = (id, field, value) => {
+                setActiveOverrides(activeOverrides.map(ov => ov.id === id ? { ...ov, [field]: value } : ov));
+            };
+
+            const removeOverride = (id) => {
+                setActiveOverrides(activeOverrides.filter(ov => ov.id !== id));
+            };
+
+            const saveBill = (e) => {
                 e.preventDefault();
-                if (!manualEntry.amount || !manualEntry.description) return;
-                
-                const owner = determineOwner(manualEntry.card, manualEntry.category);
-                
-                const newTxn = {
-                    id: crypto.randomUUID(),
-                    date: manualEntry.date,
-                    description: manualEntry.description,
-                    amount: parseFloat(manualEntry.amount),
-                    category: manualEntry.category,
-                    card: manualEntry.card,
-                    type: manualEntry.card === 'Cash/UPI' ? 'Adhoc' : 'Credit Card',
-                    owner: owner,
-                    source: 'Manual'
-                };
+                const totalAmt = parseFloat(activeTotal);
+                if (isNaN(totalAmt) || totalAmt <= 0) return alert("Please enter a valid total amount.");
 
-                setTransactions([newTxn, ...transactions]);
-                setManualEntry({ ...manualEntry, description: '', amount: '' });
-                setView('transactions');
-            };
+                let totalOverrides = 0;
+                const cleanOverrides = [];
 
-            const updateTransaction = (id, field, value) => {
-                setTransactions(transactions.map(t => {
-                    if (t.id === id) {
-                        const updated = { ...t, [field]: value };
-                        if (field === 'category' || field === 'card') {
-                            updated.owner = determineOwner(updated.card, updated.category);
-                        }
-                        return updated;
+                for (let ov of activeOverrides) {
+                    const amt = parseFloat(ov.amount);
+                    if (!isNaN(amt) && amt > 0) {
+                        totalOverrides += amt;
+                        cleanOverrides.push({ ...ov, amount: amt });
                     }
-                    return t;
-                }));
-            };
+                }
 
-            const removeTransaction = (id) => {
-                setTransactions(transactions.filter(t => t.id !== id));
-            };
+                if (totalOverrides > totalAmt) {
+                    return alert("Your specific deductions cannot be higher than the total card bill!");
+                }
 
-            const syncToSheets = async () => {
-                if (!scriptUrl) return alert('Please set your Google Apps Script URL in Settings first.');
-                if (transactions.length === 0) return alert('No transactions to sync');
-                setIsSyncing(true);
-                
-                const payload = {
-                    action: 'appendTransactions',
-                    transactions: transactions.map(t => ({
-                        recordId: t.id,
-                        date: t.date,
-                        month: t.date.substring(0, 7),
-                        cardName: t.card,
-                        description: t.description,
-                        amount: t.amount,
-                        category: t.category,
-                        transactionType: t.type,
-                        autoAssignedOwner: t.owner,
-                        manualOverride: t.owner,
-                        finalOwner: t.owner,
-                        sourceFile: t.source,
-                        statementMonth: t.date.substring(0, 7)
-                    }))
+                const remainingAmount = totalAmt - totalOverrides;
+                const defaultOwner = rules.cards[activeCard] || 'Split';
+
+                let u1Share = 0;
+                let u2Share = 0;
+
+                // 1. Distribute Overrides (100% to selected person)
+                cleanOverrides.forEach(ov => {
+                    if (ov.owner === user1Name) u1Share += ov.amount;
+                    if (ov.owner === user2Name) u2Share += ov.amount;
+                });
+
+                // 2. Distribute Remaining based on Card Rules
+                if (defaultOwner === user1Name) {
+                    u1Share += remainingAmount;
+                } else if (defaultOwner === user2Name) {
+                    u2Share += remainingAmount;
+                } else {
+                    u1Share += (remainingAmount / 2);
+                    u2Share += (remainingAmount / 2);
+                }
+
+                const newBill = {
+                    id: crypto.randomUUID(),
+                    cardName: activeCard,
+                    total: totalAmt,
+                    u1Share: u1Share,
+                    u2Share: u2Share,
+                    overrides: cleanOverrides,
+                    defaultOwner: defaultOwner,
+                    remainingSplit: remainingAmount
                 };
 
-                try {
-                    await fetch(scriptUrl, {
-                        method: 'POST',
-                        body: JSON.stringify(payload),
-                        mode: 'no-cors'
-                    });
-                    alert('Successfully synced to Google Sheets!');
-                    setTransactions([]); 
-                    setView('dashboard');
-                } catch (error) {
-                    alert('Error writing parameters to Sheet.');
-                    console.error(error);
-                } finally {
-                    setIsSyncing(false);
-                }
+                setBills([...bills, newBill]);
+                
+                // Reset Form
+                setActiveTotal('');
+                setActiveOverrides([]);
+                setView('dashboard');
             };
 
+            const deleteBill = (id) => {
+                setBills(bills.filter(b => b.id !== id));
+            };
+
+            // Global Calculations
             const stats = useMemo(() => {
                 let total = 0, u1Total = 0, u2Total = 0;
-                let cardSummary = {};
-
-                transactions.forEach(t => {
-                    total += t.amount; 
-                    
-                    if (!cardSummary[t.card]) {
-                        cardSummary[t.card] = { total: 0, u1: 0, u2: 0 };
-                    }
-                    cardSummary[t.card].total += t.amount;
-
-                    if (t.owner === user1Name) {
-                        u1Total += t.amount;
-                        cardSummary[t.card].u1 += t.amount;
-                    } else if (t.owner === user2Name) {
-                        u2Total += t.amount;
-                        cardSummary[t.card].u2 += t.amount;
-                    } else {
-                        u1Total += t.amount / 2;
-                        u2Total += t.amount / 2;
-                        cardSummary[t.card].u1 += t.amount / 2;
-                        cardSummary[t.card].u2 += t.amount / 2;
-                    }
+                
+                bills.forEach(b => {
+                    total += b.total;
+                    u1Total += b.u1Share;
+                    u2Total += b.u2Share;
                 });
 
                 let settlementText = 'Balanced Status';
                 if (u1Total > u2Total) settlementText = `${user2Name} owes ${user1Name} ₹${(u1Total - u2Total).toFixed(2)}`;
                 if (u2Total > u1Total) settlementText = `${user1Name} owes ${user2Name} ₹${(u2Total - u1Total).toFixed(2)}`;
 
-                return { total, u1Total, u2Total, settlementText, cardSummary };
-            }, [transactions, user1Name, user2Name]);
+                return { total, u1Total, u2Total, settlementText };
+            }, [bills, user1Name, user2Name]);
 
             const shareWhatsApp = () => {
-                let text = `*BillSplit Pro Summary*\n\n` +
-                             `*Total Month Spend:* ₹${stats.total.toFixed(2)}\n` +
-                             `*${user1Name}'s Share:* ₹${stats.u1Total.toFixed(2)}\n` +
-                             `*${user2Name}'s Share:* ₹${stats.u2Total.toFixed(2)}\n\n` +
-                             `*Allocation:* ${stats.settlementText}\n\n` +
-                             `*Card Breakdown:*\n`;
+                let text = `*💳 BillSplit Pro Summary*\n\n`;
+                text += `*Total Expenses:* ₹${stats.total.toFixed(2)}\n`;
+                text += `*${user1Name}'s Total:* ₹${stats.u1Total.toFixed(2)}\n`;
+                text += `*${user2Name}'s Total:* ₹${stats.u2Total.toFixed(2)}\n\n`;
+                text += `✅ *Settlement:* ${stats.settlementText}\n\n`;
+                text += `➖➖➖➖➖➖➖➖\n`;
+                text += `*📄 Card-by-Card Breakdown:*\n\n`;
 
-                Object.keys(stats.cardSummary).forEach(cardName => {
-                    const data = stats.cardSummary[cardName];
-                    text += `- *${cardName}*: ₹${data.total.toFixed(2)} ` +
-                            `(${user1Name}: ₹${data.u1.toFixed(2)}, ${user2Name}: ₹${data.u2.toFixed(2)})\n`;
+                bills.forEach(b => {
+                    text += `*${b.cardName}*: ₹${b.total.toFixed(2)}\n`;
+                    text += `   ↳ ${user1Name}: ₹${b.u1Share.toFixed(2)} | ${user2Name}: ₹${b.u2Share.toFixed(2)}\n`;
+                    
+                    if (b.overrides.length > 0) {
+                        b.overrides.forEach(ov => {
+                            text += `   📌 _${ov.desc}_ (${ov.owner}): ₹${ov.amount.toFixed(2)}\n`;
+                        });
+                    }
+                    text += `\n`;
                 });
 
                 window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
@@ -362,179 +177,158 @@
                 <div className="max-w-md mx-auto bg-white min-h-screen shadow-lg pb-20 relative">
                     <header className="bg-teal-700 text-white p-4 sticky top-0 z-10 shadow-md flex justify-between items-center">
                         <h1 className="text-xl font-bold"><i className="fa-solid fa-file-invoice-dollar mr-2"></i>BillSplit Pro</h1>
-                        <div className="flex gap-2">
-                            <button onClick={() => setView('settings')} className="text-white hover:text-teal-200 p-1">
-                                <i className="fa-solid fa-gear text-lg"></i>
-                            </button>
-                            {transactions.length > 0 && (
-                                <button onClick={syncToSheets} disabled={isSyncing} className="bg-teal-600 px-3 py-1 rounded text-sm hover:bg-teal-500">
-                                    {isSyncing ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>} Sync
-                                </button>
-                            )}
-                        </div>
+                        <button onClick={() => setView('settings')} className="text-white hover:text-teal-200 p-1">
+                            <i className="fa-solid fa-gear text-lg"></i>
+                        </button>
                     </header>
-
-                    {!scriptUrl && view !== 'settings' && (
-                        <div className="bg-amber-50 border-b border-amber-200 p-3 text-sm text-amber-800 flex items-center justify-between">
-                            <span>Backend API endpoint not configured.</span>
-                            <button onClick={() => setView('settings')} className="underline font-semibold">Configure Now</button>
-                        </div>
-                    )}
 
                     <main className="p-4">
                         {/* DASHBOARD VIEW */}
                         {view === 'dashboard' && (
                             <div className="space-y-6">
                                 <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm text-center">
-                                    <p className="text-gray-500 text-sm mb-1">Unsynced Statement Pool</p>
+                                    <p className="text-gray-500 text-sm mb-1">Total Statement Spend</p>
                                     <h2 className="text-3xl font-bold text-gray-800">₹{stats.total.toFixed(2)}</h2>
                                     <p className="text-teal-600 font-semibold mt-2 bg-teal-50 inline-block px-3 py-1 rounded-full">{stats.settlementText}</p>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
-                                        <p className="text-blue-600 text-sm font-semibold mb-1">{user1Name}'s Account</p>
+                                        <p className="text-blue-600 text-sm font-semibold mb-1">{user1Name}</p>
                                         <p className="text-xl font-bold text-blue-900">₹{stats.u1Total.toFixed(2)}</p>
                                     </div>
                                     <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-center">
-                                        <p className="text-purple-600 text-sm font-semibold mb-1">{user2Name}'s Account</p>
+                                        <p className="text-purple-600 text-sm font-semibold mb-1">{user2Name}</p>
                                         <p className="text-xl font-bold text-purple-900">₹{stats.u2Total.toFixed(2)}</p>
                                     </div>
                                 </div>
 
-                                {/* CARD BIFURCATION SECTION */}
-                                {transactions.length > 0 && (
-                                    <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-                                        <div className="bg-gray-50 p-3 border-b">
-                                            <h3 className="font-semibold text-gray-700 text-sm"><i className="fa-regular fa-credit-card mr-2"></i>Card-by-Card Breakdown</h3>
-                                        </div>
-                                        <div className="p-0">
-                                            {Object.entries(stats.cardSummary).map(([cardName, data]) => (
-                                                <div key={cardName} className="p-3 border-b last:border-b-0 text-sm">
-                                                    <div className="flex justify-between font-bold text-gray-800 mb-1">
-                                                        <span>{cardName}</span>
-                                                        <span>₹{data.total.toFixed(2)}</span>
+                                {/* LIST OF LOGGED BILLS */}
+                                {bills.length > 0 ? (
+                                    <div className="space-y-3">
+                                        <h3 className="font-bold text-gray-700 border-b pb-2"><i className="fa-solid fa-list-check mr-2"></i>Logged Statements</h3>
+                                        {bills.map(b => (
+                                            <div key={b.id} className="bg-white border rounded-xl shadow-sm p-4 relative">
+                                                <button onClick={() => deleteBill(b.id)} className="absolute top-3 right-3 text-red-400 hover:text-red-600"><i className="fa-solid fa-trash-can"></i></button>
+                                                
+                                                <p className="font-bold text-gray-800 text-lg mb-1">{b.cardName}</p>
+                                                <p className="font-semibold text-teal-700 mb-3">Total Bill: ₹{b.total.toFixed(2)}</p>
+                                                
+                                                <div className="bg-gray-50 rounded-lg p-2 text-sm text-gray-600 mb-2">
+                                                    <div className="flex justify-between font-semibold text-gray-700">
+                                                        <span>{user1Name} Share:</span>
+                                                        <span>₹{b.u1Share.toFixed(2)}</span>
                                                     </div>
-                                                    <div className="flex justify-between text-xs text-gray-500">
-                                                        <span>{user1Name}: ₹{data.u1.toFixed(2)}</span>
-                                                        <span>{user2Name}: ₹{data.u2.toFixed(2)}</span>
+                                                    <div className="flex justify-between font-semibold text-gray-700">
+                                                        <span>{user2Name} Share:</span>
+                                                        <span>₹{b.u2Share.toFixed(2)}</span>
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
+
+                                                {b.overrides.length > 0 && (
+                                                    <div className="mt-2 border-t pt-2">
+                                                        <p className="text-xs font-semibold text-gray-500 mb-1">Specific Deductions Applied:</p>
+                                                        {b.overrides.map((ov, i) => (
+                                                            <div key={i} className="flex justify-between text-xs text-gray-600">
+                                                                <span>- {ov.desc} ({ov.owner})</span>
+                                                                <span className="font-semibold">₹{ov.amount.toFixed(2)}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center text-gray-400 py-10">
+                                        <i className="fa-regular fa-credit-card text-4xl mb-3 opacity-50"></i>
+                                        <p>No card bills logged yet.</p>
                                     </div>
                                 )}
 
-                                <button onClick={shareWhatsApp} className="w-full bg-green-500 text-white p-3 rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-green-600 shadow-md">
-                                    <i className="fa-brands fa-whatsapp text-xl"></i> Export via WhatsApp
-                                </button>
+                                {bills.length > 0 && (
+                                    <button onClick={shareWhatsApp} className="w-full bg-green-500 text-white p-3 rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-green-600 shadow-md">
+                                        <i className="fa-brands fa-whatsapp text-xl"></i> Share Summary via WhatsApp
+                                    </button>
+                                )}
                             </div>
                         )}
 
-                        {/* ADD / IMPORT VIEW */}
+                        {/* ADD BILL VIEW */}
                         {view === 'add' && (
-                            <div className="space-y-6">
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                                    <h3 className="font-bold text-gray-700 mb-4 border-b pb-2"><i className="fa-solid fa-file-csv mr-2"></i>Targeted Statement Upload</h3>
+                            <div className="space-y-4">
+                                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                                    <h2 className="text-lg font-bold text-teal-800 mb-4 border-b pb-2">Log Card Statement</h2>
                                     
-                                    <div className="mb-4">
-                                        <label className="block text-xs font-semibold text-gray-500 mb-1">1. Select Target Card</label>
-                                        <select value={uploadCard} onChange={e => setUploadCard(e.target.value)} className="w-full border p-2 rounded bg-gray-50 text-gray-800 font-medium">
-                                            {CARDS.map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                    </div>
+                                    <form onSubmit={saveBill} className="space-y-5">
+                                        {/* Step 1: Total Amount */}
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-1">1. Select Card</label>
+                                            <select value={activeCard} onChange={e => setActiveCard(e.target.value)} className="w-full border p-3 rounded-lg bg-gray-50 text-gray-800 font-medium focus:ring-2 focus:ring-teal-500 outline-none">
+                                                {CARDS.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </div>
 
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-500 mb-1">2. Upload File(s) for {uploadCard}</label>
-                                        <input type="file" multiple accept=".csv, .xls, .xlsx" onChange={(e) => handleFileUpload(e, uploadCard)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100" />
-                                    </div>
-                                </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-1">2. Statement Total (₹)</label>
+                                            <input type="number" step="0.01" value={activeTotal} onChange={e => setActiveTotal(e.target.value)} placeholder="e.g., 50000" className="w-full border p-3 rounded-lg text-lg font-bold text-teal-800 bg-teal-50 focus:ring-2 focus:ring-teal-500 outline-none" required />
+                                        </div>
 
-                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                                    <h3 className="font-bold text-gray-700 mb-4 border-b pb-2"><i className="fa-solid fa-pen-to-square mr-2"></i>Manual Asset Log</h3>
-                                    <form onSubmit={addManualEntry} className="space-y-3">
-                                        <input type="date" value={manualEntry.date} onChange={e => setManualEntry({...manualEntry, date: e.target.value})} className="w-full border p-2 rounded focus:outline-none focus:border-teal-500" required />
-                                        <input type="text" placeholder="Description Details" value={manualEntry.description} onChange={e => setManualEntry({...manualEntry, description: e.target.value})} className="w-full border p-2 rounded focus:outline-none focus:border-teal-500" required />
-                                        <input type="number" placeholder="Value Amount (₹)" value={manualEntry.amount} onChange={e => setManualEntry({...manualEntry, amount: e.target.value})} className="w-full border p-2 rounded focus:outline-none focus:border-teal-500" required />
-                                        
-                                        <select value={manualEntry.category} onChange={e => setManualEntry({...manualEntry, category: e.target.value})} className="w-full border p-2 rounded bg-white">
-                                            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                        
-                                        <select value={manualEntry.card} onChange={e => setManualEntry({...manualEntry, card: e.target.value})} className="w-full border p-2 rounded bg-white">
-                                            {CARDS.map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                        
-                                        <button type="submit" className="w-full bg-teal-700 text-white p-2 rounded font-semibold hover:bg-teal-800">Add Entry</button>
+                                        {/* Step 2: Overrides */}
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <label className="block text-sm font-bold text-gray-700">3. Specific Deductions (Optional)</label>
+                                            </div>
+                                            <p className="text-xs text-gray-500 mb-4 leading-relaxed">Enter any amounts that should be subtracted from the total and charged 100% to one person. The remaining bill will be split automatically.</p>
+
+                                            {activeOverrides.map((ov, index) => (
+                                                <div key={ov.id} className="flex flex-col gap-2 bg-white p-3 rounded border shadow-sm mb-3 relative">
+                                                    <button type="button" onClick={() => removeOverride(ov.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-200"><i className="fa-solid fa-xmark text-xs"></i></button>
+                                                    
+                                                    <input type="text" placeholder="Description (e.g. Flight Ticket)" value={ov.desc} onChange={e => updateOverride(ov.id, 'desc', e.target.value)} className="w-full border-b p-1 text-sm focus:outline-none focus:border-teal-500" required />
+                                                    
+                                                    <div className="flex gap-2 mt-1">
+                                                        <input type="number" placeholder="Amount (₹)" value={ov.amount} onChange={e => updateOverride(ov.id, 'amount', e.target.value)} className="w-1/2 border p-2 rounded text-sm focus:outline-none focus:border-teal-500" required />
+                                                        
+                                                        <select value={ov.owner} onChange={e => updateOverride(ov.id, 'owner', e.target.value)} className="w-1/2 border p-2 rounded text-sm bg-gray-50 focus:outline-none">
+                                                            <option value={user1Name}>100% {user1Name}</option>
+                                                            <option value={user2Name}>100% {user2Name}</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            <button type="button" onClick={addOverrideRow} className="w-full border-2 border-dashed border-teal-300 text-teal-700 p-2 rounded-lg font-semibold text-sm hover:bg-teal-50 transition-colors">
+                                                <i className="fa-solid fa-plus mr-1"></i> Add Specific Deduction
+                                            </button>
+                                        </div>
+
+                                        <button type="submit" className="w-full bg-teal-700 text-white p-3 rounded-lg font-bold text-lg hover:bg-teal-800 shadow-md transition-colors">
+                                            Save & Calculate Split
+                                        </button>
                                     </form>
                                 </div>
                             </div>
                         )}
 
-                        {/* LIST VIEW */}
-                        {view === 'transactions' && (
-                            <div className="space-y-4">
-                                {transactions.length === 0 ? (
-                                    <p className="text-center text-gray-500 mt-10">No items available in the parsing workspace.</p>
-                                ) : (
-                                    transactions.sort((a, b) => b.amount - a.amount).map(txn => (
-                                        <div key={txn.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative">
-                                            <button onClick={() => removeTransaction(txn.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600"><i className="fa-solid fa-xmark"></i></button>
-                                            
-                                            <div className="flex justify-between items-start mb-2 pr-4">
-                                                <div>
-                                                    <p className="font-bold text-gray-800">{txn.description}</p>
-                                                    <p className="text-xs text-gray-500">{txn.date} • {txn.source === 'Manual' ? 'Manual' : 'Imported'}</p>
-                                                </div>
-                                                <p className={`font-bold text-lg ${txn.amount < 0 ? 'text-green-600' : 'text-teal-700'}`}>
-                                                    ₹{txn.amount}
-                                                </p>
-                                            </div>
-
-                                            <div className="grid grid-cols-3 gap-2 mt-3">
-                                                <select value={txn.category} onChange={(e) => updateTransaction(txn.id, 'category', e.target.value)} className="text-xs border p-1 rounded bg-gray-50 text-gray-700">
-                                                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                                                </select>
-
-                                                <select value={txn.card} onChange={(e) => updateTransaction(txn.id, 'card', e.target.value)} className="text-xs border p-1 rounded bg-gray-50 text-gray-700">
-                                                    {CARDS.map(c => <option key={c} value={c}>{c}</option>)}
-                                                </select>
-
-                                                <select value={txn.owner} onChange={(e) => updateTransaction(txn.id, 'owner', e.target.value)} className={`text-xs border p-1 rounded font-semibold ${txn.owner === user1Name ? 'bg-blue-100 text-blue-800' : txn.owner === user2Name ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}`}>
-                                                    <option value="Split">Split 50/50</option>
-                                                    <option value={user1Name}>100% {user1Name}</option>
-                                                    <option value={user2Name}>100% {user2Name}</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        )}
-
                         {/* SETTINGS VIEW */}
                         {view === 'settings' && (
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-4">
-                                <h3 className="font-bold text-gray-700 border-b pb-2"><i className="fa-solid fa-sliders mr-2"></i>Local Storage Options</h3>
-                                <div className="space-y-3">
+                            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-4">
+                                <h3 className="font-bold text-gray-700 border-b pb-2"><i className="fa-solid fa-users mr-2"></i>Profile Settings</h3>
+                                <div className="space-y-4">
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-500 mb-1">Apps Script Exec URL</label>
-                                        <input type="text" id="setting_url" defaultValue={scriptUrl} placeholder="https://script.google.com/.../exec" className="w-full border p-2 rounded text-sm focus:outline-none focus:border-teal-500" />
+                                        <label className="block text-sm font-semibold text-gray-600 mb-1">Primary User</label>
+                                        <input type="text" id="setting_u1" defaultValue={user1Name} className="w-full border p-3 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-500" />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-500 mb-1">User Profile 1 Name</label>
-                                        <input type="text" id="setting_u1" defaultValue={user1Name} placeholder="Primary Person" className="w-full border p-2 rounded text-sm focus:outline-none focus:border-teal-500" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-500 mb-1">User Profile 2 Name</label>
-                                        <input type="text" id="setting_u2" defaultValue={user2Name} placeholder="Secondary Partner" className="w-full border p-2 rounded text-sm focus:outline-none focus:border-teal-500" />
+                                        <label className="block text-sm font-semibold text-gray-600 mb-1">Secondary User</label>
+                                        <input type="text" id="setting_u2" defaultValue={user2Name} className="w-full border p-3 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-500" />
                                     </div>
                                     <button onClick={() => saveSettings(
-                                        document.getElementById('setting_url').value,
                                         document.getElementById('setting_u1').value,
                                         document.getElementById('setting_u2').value
-                                    )} className="w-full bg-teal-700 text-white p-2 rounded font-semibold text-sm hover:bg-teal-800">
-                                        Update Local Configurations
+                                    )} className="w-full bg-gray-800 text-white p-3 rounded-lg font-semibold hover:bg-gray-900 transition-colors">
+                                        Update Names
                                     </button>
                                 </div>
                             </div>
@@ -543,20 +337,15 @@
 
                     {/* Bottom Navigation */}
                     <nav className="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 pb-safe z-20">
-                        <button onClick={() => setView('dashboard')} className={`flex flex-col items-center flex-1 ${view === 'dashboard' ? 'text-teal-700' : 'text-gray-400'}`}>
+                        <button onClick={() => setView('dashboard')} className={`flex flex-col items-center flex-1 transition-colors ${view === 'dashboard' ? 'text-teal-700' : 'text-gray-400 hover:text-gray-600'}`}>
                             <i className="fa-solid fa-chart-pie text-xl mb-1"></i>
-                            <span className="text-[10px] font-semibold">Dashboard</span>
+                            <span className="text-[10px] font-bold tracking-wide uppercase">Summary</span>
                         </button>
-                        <button onClick={() => setView('add')} className={`flex flex-col items-center flex-1 ${view === 'add' ? 'text-teal-700' : 'text-gray-400'}`}>
-                            <div className="bg-teal-700 text-white rounded-full w-10 h-10 flex items-center justify-center -mt-5 border-4 border-white shadow-sm">
-                                <i className="fa-solid fa-plus text-lg"></i>
+                        <button onClick={() => setView('add')} className={`flex flex-col items-center flex-1 transition-colors ${view === 'add' ? 'text-teal-700' : 'text-gray-400 hover:text-gray-600'}`}>
+                            <div className="bg-teal-700 text-white rounded-full w-12 h-12 flex items-center justify-center -mt-6 border-4 border-white shadow-md">
+                                <i className="fa-solid fa-plus text-xl"></i>
                             </div>
-                            <span className="text-[10px] font-semibold mt-1">Workspace</span>
-                        </button>
-                        <button onClick={() => setView('transactions')} className={`flex flex-col items-center flex-1 relative ${view === 'transactions' ? 'text-teal-700' : 'text-gray-400'}`}>
-                            {transactions.length > 0 && <span className="absolute top-0 right-4 bg-red-500 text-white text-[8px] rounded-full w-4 h-4 flex items-center justify-center font-bold">{transactions.length}</span>}
-                            <i className="fa-solid fa-list-ul text-xl mb-1"></i>
-                            <span className="text-[10px] font-semibold">Verification</span>
+                            <span className="text-[10px] font-bold tracking-wide uppercase mt-1">Log Bill</span>
                         </button>
                     </nav>
                 </div>
