@@ -22,7 +22,8 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useCallback } = React;
 
-        const CATEGORIES = ['Food Delivery', 'Dining', 'Groceries', 'Utilities', 'Shopping', 'Travel', 'Subscriptions', 'Cook Salary', 'Cleaner Salary', 'Car Wash', 'Electricity Bill', 'Broadband Bill', 'Nanny Salary', 'Monthly Rent', 'Society Maintenance', 'Home Loan EMI', 'TDS on Loan', 'Adhoc'];
+        // Added 'Refund/Cashback' to the categories
+        const CATEGORIES = ['Food Delivery', 'Dining', 'Groceries', 'Utilities', 'Shopping', 'Travel', 'Subscriptions', 'Cook Salary', 'Cleaner Salary', 'Car Wash', 'Electricity Bill', 'Broadband Bill', 'Nanny Salary', 'Monthly Rent', 'Society Maintenance', 'Home Loan EMI', 'TDS on Loan', 'Refund/Cashback', 'Adhoc'];
         
         const CARDS = ['HDFC Regalia Gold', 'HDFC Swiggy', 'ICICI Sapphiro', 'ICICI Coral RuPay', 'SBI SimplyCLICK', 'Tata Neu Infinity', 'Bank of Baroda Eterna', 'Scapia', 'Amazon Pay ICICI', 'Axis Airtel', 'IndusInd EazyDiner', 'Amex Platinum Travel', 'Cash/UPI'];
 
@@ -86,7 +87,6 @@
                 setView('dashboard');
             };
 
- // THE SUPER PARSER (Refund & Cashback Secured)
             const handleFileUpload = async (e, targetCard) => {
                 const files = Array.from(e.target.files);
                 if (files.length === 0) return;
@@ -97,7 +97,6 @@
                     let headerRowIndex = -1;
                     let headers = [];
 
-                    // 1. Scan for headers
                     for (let i = 0; i < Math.min(arrayOfArrays.length, 30); i++) {
                         const row = arrayOfArrays[i];
                         if (!row) continue;
@@ -117,71 +116,55 @@
                         return;
                     }
 
-                    // 2. Identify target columns
                     const dateIdx = headers.findIndex(h => h.includes('date') || h.includes('time'));
                     const descIdx = headers.findIndex(h => h.includes('desc') || h.includes('narr') || h.includes('partic') || h.includes('detail') || h.includes('merchant'));
                     
-                    // Specific HDFC AMT column mapping
                     let amtIdx = headers.findIndex(h => h === 'amt' || h === 'amount' || h === 'value' || h === 'inr');
                     if (amtIdx === -1) amtIdx = headers.findIndex(h => h.includes('amount') || h.includes('amt'));
                     if (amtIdx === -1) amtIdx = headers.findIndex(h => (h.includes('debit') || h.includes('withdraw')) && !h.includes('credit'));
                     
-                    // Look for HDFC 'Debit /Credit' column or separate Credit column
                     const crDrIdx = headers.findIndex(h => h.includes('debit /credit') || h.includes('cr/dr'));
                     const crIdx = headers.findIndex(h => h === 'credit' || h.includes('deposit') || h === 'cr');
 
-                    // 3. Extract Transactions
                     const parsedTxns = [];
                     for (let i = headerRowIndex + 1; i < arrayOfArrays.length; i++) {
                         const row = arrayOfArrays[i];
                         if (!row || row.length === 0 || !row[dateIdx]) continue;
 
-                        // Clean up Date (Removes the time string if present)
                         const date = String(row[dateIdx]).trim().split(' ')[0];
                         const desc = String(row[descIdx] || 'Unknown Transaction').trim();
                         
-                        // Extract Amount
-                        const amtString = String(row[amtIdx] || '0').toUpperCase(); // Uppercase for easier 'CR' detection
+                        const amtString = String(row[amtIdx] || '0').toUpperCase();
                         const rawAmt = amtString.replace(/[^0-9.-]+/g, '');
                         let amt = parseFloat(rawAmt);
                         if (isNaN(amt)) amt = 0;
 
-                        // --- AGGRESSIVE CREDIT/REFUND DETECTION ---
+                        // IDENTIFY CREDITS (Cashbacks & Refunds)
                         let isCredit = false;
-                        
-                        // Scenario A: HDFC separate "Cr/Dr" column (e.g., cell says "Cr" or "Cr.")
-                        if (crDrIdx >= 0 && String(row[crDrIdx]).toUpperCase().includes('CR')) {
-                            isCredit = true;
-                        }
-                        
-                        // Scenario B: Separate Credit column with a positive number in it
-                        if (crIdx >= 0 && parseFloat(String(row[crIdx] || '0').replace(/[^0-9.-]+/g, '')) > 0) {
-                            isCredit = true;
-                        }
-                        
-                        // Scenario C: Amount column has "Cr" appended to the number directly (e.g., "50.00 Cr")
-                        if (amtString.includes('CR')) {
-                            isCredit = true;
-                        }
-                        
-                        // Scenario D: Description implies payment or cashback (Optional safety net)
-                        const descLower = desc.toLowerCase();
-                        if (descLower.includes('payment') || descLower.includes('cashback') || descLower.includes('refund')) {
-                             // Uncomment the line below if you want to aggressively filter by description keywords too
-                             // isCredit = true; 
-                        }
+                        if (crDrIdx >= 0 && String(row[crDrIdx]).toUpperCase().includes('CR')) isCredit = true;
+                        if (crIdx >= 0 && parseFloat(String(row[crIdx] || '0').replace(/[^0-9.-]+/g, '')) > 0) isCredit = true;
+                        if (amtString.includes('CR')) isCredit = true;
 
-                        // Only add spend (>0, NO credit tags, not a bill payment)
-                        if (amt > 0 && !isCredit && !descLower.includes('payment received')) {
+                        const descLower = desc.toLowerCase();
+                        
+                        // We STILL want to ignore actual bill payments, otherwise your total spend goes to zero.
+                        const isPayment = descLower.includes('payment') || descLower.includes('autopay') || descLower.includes('netbanking');
+
+                        // If there is an amount, and it is NOT a bill payment...
+                        if (amt > 0 && !isPayment) {
+                            
+                            // Make Cashbacks negative so they subtract from the bill!
+                            const finalAmt = isCredit ? -Math.abs(amt) : Math.abs(amt);
+                            
                             parsedTxns.push({
                                 id: crypto.randomUUID(),
                                 date: date,
                                 description: desc,
-                                amount: Math.abs(amt),
-                                category: 'Adhoc',
+                                amount: finalAmt, // Can be positive (spend) or negative (refund)
+                                category: isCredit ? 'Refund/Cashback' : 'Adhoc',
                                 card: targetCard,
                                 type: 'Credit Card',
-                                owner: determineOwner(targetCard, 'Adhoc'),
+                                owner: determineOwner(targetCard, isCredit ? 'Refund/Cashback' : 'Adhoc'),
                                 source: fileName
                             });
                         }
@@ -197,13 +180,11 @@
                             const reader = new FileReader();
                             reader.onload = (evt) => {
                                 const text = evt.target.result;
-                                // Handle HDFC's weird ~|~ format
                                 if (text.includes('~|~')) {
                                     const arrayOfArrays = text.split('\n').map(row => row.split('~|~').map(cell => cell.trim()));
                                     processData(arrayOfArrays, file.name);
                                     resolve();
                                 } else {
-                                    // Handle standard comma CSVs
                                     Papa.parse(text, {
                                         header: false,
                                         skipEmptyLines: true,
@@ -328,7 +309,7 @@
                 let cardSummary = {};
 
                 transactions.forEach(t => {
-                    total += t.amount;
+                    total += t.amount; // Negative amounts subtract automatically
                     
                     if (!cardSummary[t.card]) {
                         cardSummary[t.card] = { total: 0, u1: 0, u2: 0 };
@@ -501,7 +482,9 @@
                                                     <p className="font-bold text-gray-800">{txn.description}</p>
                                                     <p className="text-xs text-gray-500">{txn.date} • {txn.source === 'Manual' ? 'Manual' : 'Imported'}</p>
                                                 </div>
-                                                <p className="font-bold text-lg text-teal-700">₹{txn.amount}</p>
+                                                <p className={`font-bold text-lg ${txn.amount < 0 ? 'text-green-600' : 'text-teal-700'}`}>
+                                                    ₹{txn.amount}
+                                                </p>
                                             </div>
 
                                             <div className="grid grid-cols-3 gap-2 mt-3">
