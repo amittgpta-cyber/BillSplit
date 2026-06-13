@@ -32,7 +32,7 @@
             const [isLoadingInitial, setIsLoadingInitial] = useState(false);
             const [fetchedData, setFetchedData] = useState(null);
 
-            const [scriptUrl, setScriptUrl] = useState(() => localStorage.getItem('bs_script_url') || '');
+            const [scriptUrl, setScriptUrl] = useState(() => localStorage.getItem('bs_script_url') || 'https://script.google.com/macros/s/AKfycbzs7WDstoNCXawgqM6LRdJLe9It3pRtYEplmwIlHARpZEVQRoGSFf_stJ5dJ1IOr_g3/exec');
             const [user1Name, setUser1Name] = useState(() => localStorage.getItem('bs_user1_name') || 'Amit');
             const [user2Name, setUser2Name] = useState(() => localStorage.getItem('bs_user2_name') || 'Alka');
             
@@ -325,22 +325,23 @@
                 const offlineData = activeCardsData.cards.find(c => c.cardName === 'Offline & Fixed Spends');
                 const loanData = activeCardsData.cards.find(c => c.cardName === 'Inter-Personal Adjustments');
 
-                let text = `📊 *BILLSPLIT PRO | SUMMARY*\n`;
-                text += `🗓️ *Month:* ${selectedMonth}\n`;
-                text += `━━━━━━━━━━━━━━━━━━━━━\n`;
-                text += `💰 *Total Spends:* ₹ ${activeCardsData.summary.total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
-                text += `👦🏻 *${user1Name}'s Share:* ₹ ${activeCardsData.summary.u1Total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
-                text += `👩🏻 *${user2Name}'s Share:* ₹ ${activeCardsData.summary.u2Total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
-                text += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+                const formatMoney = (amount) => `₹ ${amount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+                let text = `🧾 *BILLSPLIT PRO: ${selectedMonth.toUpperCase()}*\n`;
+                text += `════════════════════\n`;
+                text += `💰 *Total Household Spend:* ${formatMoney(activeCardsData.summary.total)}\n`;
+                text += `👤 *${user1Name}'s Share:* ${formatMoney(activeCardsData.summary.u1Total)}\n`;
+                text += `👤 *${user2Name}'s Share:* ${formatMoney(activeCardsData.summary.u2Total)}\n`;
+                text += `════════════════════\n\n`;
 
                 if (ccData.length > 0) {
                     text += `💳 *CREDIT CARDS*\n`;
                     ccData.forEach(c => {
-                        text += `🔸 *${c.cardName}:* ₹ ${c.total.toLocaleString('en-IN')}\n`;
-                        text += `   └ ${user1Name}: ₹ ${c.u1Share.toLocaleString('en-IN')} | ${user2Name}: ₹ ${c.u2Share.toLocaleString('en-IN')}\n`;
+                        text += `• *${c.cardName}:* ${formatMoney(c.total)}\n`;
+                        text += `  ↳ ${user1Name}: ${formatMoney(c.u1Share)} | ${user2Name}: ${formatMoney(c.u2Share)}\n`;
                         if (c.overrides.length > 0) {
                             c.overrides.forEach(ov => {
-                                text += `   📌 _${ov.desc}_ (${ov.owner}): ₹ ${ov.amount.toLocaleString('en-IN')}\n`;
+                                text += `  📌 _${ov.desc} (${ov.owner}):_ ${formatMoney(ov.amount)}\n`;
                             });
                         }
                     });
@@ -349,10 +350,10 @@
 
                 if (offlineData && offlineData.overrides.length > 0) {
                     text += `🏠 *FIXED & OFFLINE SPENDS*\n`;
-                    text += `🔸 *Total:* ₹ ${offlineData.total.toLocaleString('en-IN')}\n`;
-                    text += `   └ ${user1Name}: ₹ ${offlineData.u1Share.toLocaleString('en-IN')} | ${user2Name}: ₹ ${offlineData.u2Share.toLocaleString('en-IN')}\n`;
+                    text += `• *Total:* ${formatMoney(offlineData.total)}\n`;
+                    text += `  ↳ ${user1Name}: ${formatMoney(offlineData.u1Share)} | ${user2Name}: ${formatMoney(offlineData.u2Share)}\n`;
                     offlineData.overrides.forEach(ov => {
-                        text += `   ▪️ ${ov.desc} (${ov.owner}): ₹ ${ov.amount.toLocaleString('en-IN')}\n`;
+                        text += `  ▫️ _${ov.desc} (${ov.owner}):_ ${formatMoney(ov.amount)}\n`;
                     });
                     text += `\n`;
                 }
@@ -360,7 +361,7 @@
                 if (loanData && loanData.overrides.length > 0) {
                     text += `🔄 *INTER-PERSONAL ADJUSTMENTS*\n`;
                     loanData.overrides.forEach(ov => {
-                        text += `   ▪️ ${ov.desc} (${ov.owner}): ₹ ${ov.amount.toLocaleString('en-IN')}\n`;
+                        text += `  ▫️ _${ov.desc} (${ov.owner}):_ ${formatMoney(ov.amount)}\n`;
                     });
                 }
 
