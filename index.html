@@ -18,152 +18,174 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useMemo, useCallback } = React;
+        const { useState, useMemo } = React;
 
         const CARDS = ['HDFC Regalia Gold', 'HDFC Swiggy', 'ICICI Sapphiro', 'ICICI Coral RuPay', 'SBI SimplyCLICK', 'Tata Neu Infinity', 'Bank of Baroda Eterna', 'Scapia', 'Amazon Pay ICICI', 'Axis Airtel', 'IndusInd EazyDiner', 'Amex Platinum Travel', 'Cash/UPI'];
 
         const App = () => {
-            const [view, setView] = useState('dashboard');
-            const [bills, setBills] = useState([]);
+            const [view, setView] = useState('entry'); // 'entry', 'summary', 'settings'
+            const [isSyncing, setIsSyncing] = useState(false);
 
-            // Settings State
+            const [scriptUrl, setScriptUrl] = useState(() => localStorage.getItem('bs_script_url') || '');
             const [user1Name, setUser1Name] = useState(() => localStorage.getItem('bs_user1_name') || 'Amit');
             const [user2Name, setUser2Name] = useState(() => localStorage.getItem('bs_user2_name') || 'Alka');
+            
+            const getCurrentMonth = () => {
+                const d = new Date();
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            };
+            const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
 
-            // Form Entry State
-            const [activeCard, setActiveCard] = useState(CARDS[0]);
-            const [activeTotal, setActiveTotal] = useState('');
-            const [activeOverrides, setActiveOverrides] = useState([]); // {id, desc, amount, owner}
+            // Initialize form state for all cards
+            const [formData, setFormData] = useState(() => {
+                const initial = {};
+                CARDS.forEach(c => initial[c] = { total: '', overrides: [] });
+                return initial;
+            });
 
-            // Rules Engine for Default Card Ownership
-            const rules = useMemo(() => {
-                return {
-                    cards: {
-                        'HDFC Swiggy': user2Name,
-                        'Axis Airtel': user1Name
+            const rules = useMemo(() => ({
+                'HDFC Swiggy': user2Name,
+                'Axis Airtel': user1Name
+            }), [user1Name, user2Name]);
+
+            const handleTotalChange = (card, value) => {
+                setFormData(prev => ({ ...prev, [card]: { ...prev[card], total: value } }));
+            };
+
+            const addOverride = (card) => {
+                setFormData(prev => ({
+                    ...prev,
+                    [card]: {
+                        ...prev[card],
+                        overrides: [...prev[card].overrides, { id: crypto.randomUUID(), desc: '', amount: '', owner: user1Name }]
                     }
-                };
-            }, [user1Name, user2Name]);
-
-            const saveSettings = (u1, u2) => {
-                localStorage.setItem('bs_user1_name', u1);
-                localStorage.setItem('bs_user2_name', u2);
-                setUser1Name(u1);
-                setUser2Name(u2);
-                alert('Names updated successfully.');
-                setView('dashboard');
+                }));
             };
 
-            // Form Actions
-            const addOverrideRow = () => {
-                setActiveOverrides([...activeOverrides, { id: crypto.randomUUID(), desc: '', amount: '', owner: user1Name }]);
-            };
-
-            const updateOverride = (id, field, value) => {
-                setActiveOverrides(activeOverrides.map(ov => ov.id === id ? { ...ov, [field]: value } : ov));
-            };
-
-            const removeOverride = (id) => {
-                setActiveOverrides(activeOverrides.filter(ov => ov.id !== id));
-            };
-
-            const saveBill = (e) => {
-                e.preventDefault();
-                const totalAmt = parseFloat(activeTotal);
-                if (isNaN(totalAmt) || totalAmt <= 0) return alert("Please enter a valid total amount.");
-
-                let totalOverrides = 0;
-                const cleanOverrides = [];
-
-                for (let ov of activeOverrides) {
-                    const amt = parseFloat(ov.amount);
-                    if (!isNaN(amt) && amt > 0) {
-                        totalOverrides += amt;
-                        cleanOverrides.push({ ...ov, amount: amt });
+            const updateOverride = (card, id, field, value) => {
+                setFormData(prev => ({
+                    ...prev,
+                    [card]: {
+                        ...prev[card],
+                        overrides: prev[card].overrides.map(ov => ov.id === id ? { ...ov, [field]: value } : ov)
                     }
-                }
+                }));
+            };
 
-                if (totalOverrides > totalAmt) {
-                    return alert("Your specific deductions cannot be higher than the total card bill!");
-                }
+            const removeOverride = (card, id) => {
+                setFormData(prev => ({
+                    ...prev,
+                    [card]: {
+                        ...prev[card],
+                        overrides: prev[card].overrides.filter(ov => ov.id !== id)
+                    }
+                }));
+            };
 
-                const remainingAmount = totalAmt - totalOverrides;
-                const defaultOwner = rules.cards[activeCard] || 'Split';
+            const clearForm = () => {
+                const reset = {};
+                CARDS.forEach(c => reset[c] = { total: '', overrides: [] });
+                setFormData(reset);
+            };
 
-                let u1Share = 0;
-                let u2Share = 0;
+            const activeCardsData = useMemo(() => {
+                const processed = [];
+                let grandTotal = 0, u1Grand = 0, u2Grand = 0;
 
-                // 1. Distribute Overrides (100% to selected person)
-                cleanOverrides.forEach(ov => {
-                    if (ov.owner === user1Name) u1Share += ov.amount;
-                    if (ov.owner === user2Name) u2Share += ov.amount;
+                CARDS.forEach(cardName => {
+                    const data = formData[cardName];
+                    const totalAmt = parseFloat(data.total);
+                    
+                    if (!isNaN(totalAmt) && totalAmt > 0) {
+                        let totalOverrides = 0;
+                        let u1Share = 0;
+                        let u2Share = 0;
+                        const cleanOverrides = [];
+
+                        data.overrides.forEach(ov => {
+                            const amt = parseFloat(ov.amount);
+                            if (!isNaN(amt) && amt > 0) {
+                                totalOverrides += amt;
+                                cleanOverrides.push({ ...ov, amount: amt });
+                                if (ov.owner === user1Name) u1Share += amt;
+                                if (ov.owner === user2Name) u2Share += amt;
+                            }
+                        });
+
+                        const remaining = Math.max(0, totalAmt - totalOverrides);
+                        const defaultOwner = rules[cardName] || 'Split';
+
+                        if (defaultOwner === user1Name) u1Share += remaining;
+                        else if (defaultOwner === user2Name) u2Share += remaining;
+                        else {
+                            u1Share += (remaining / 2);
+                            u2Share += (remaining / 2);
+                        }
+
+                        processed.push({
+                            cardName,
+                            total: totalAmt,
+                            u1Share,
+                            u2Share,
+                            overrides: cleanOverrides
+                        });
+
+                        grandTotal += totalAmt;
+                        u1Grand += u1Share;
+                        u2Grand += u2Share;
+                    }
                 });
 
-                // 2. Distribute Remaining based on Card Rules
-                if (defaultOwner === user1Name) {
-                    u1Share += remainingAmount;
-                } else if (defaultOwner === user2Name) {
-                    u2Share += remainingAmount;
-                } else {
-                    u1Share += (remainingAmount / 2);
-                    u2Share += (remainingAmount / 2);
-                }
+                let settlementText = 'Settled';
+                if (u1Grand > u2Grand) settlementText = `${user2Name} owes ${user1Name} ₹${(u1Grand - u2Grand).toFixed(2)}`;
+                if (u2Grand > u1Grand) settlementText = `${user1Name} owes ${user2Name} ₹${(u2Grand - u1Grand).toFixed(2)}`;
 
-                const newBill = {
-                    id: crypto.randomUUID(),
-                    cardName: activeCard,
-                    total: totalAmt,
-                    u1Share: u1Share,
-                    u2Share: u2Share,
-                    overrides: cleanOverrides,
-                    defaultOwner: defaultOwner,
-                    remainingSplit: remainingAmount
+                return { 
+                    cards: processed, 
+                    summary: { total: grandTotal, u1Total: u1Grand, u2Total: u2Grand, settlementText } 
+                };
+            }, [formData, rules, user1Name, user2Name]);
+
+            const syncToSheets = async () => {
+                if (!scriptUrl) return alert('Please set your Apps Script URL in settings.');
+                if (activeCardsData.cards.length === 0) return alert('No data to sync.');
+                
+                setIsSyncing(true);
+                const payload = {
+                    action: 'syncMonth',
+                    month: selectedMonth,
+                    summary: activeCardsData.summary,
+                    cards: activeCardsData.cards
                 };
 
-                setBills([...bills, newBill]);
-                
-                // Reset Form
-                setActiveTotal('');
-                setActiveOverrides([]);
-                setView('dashboard');
+                try {
+                    await fetch(scriptUrl, {
+                        method: 'POST',
+                        body: JSON.stringify(payload),
+                        mode: 'no-cors'
+                    });
+                    alert(`Successfully synced ${selectedMonth} to Sheets!`);
+                } catch (error) {
+                    alert('Error syncing to Sheet.');
+                } finally {
+                    setIsSyncing(false);
+                }
             };
-
-            const deleteBill = (id) => {
-                setBills(bills.filter(b => b.id !== id));
-            };
-
-            // Global Calculations
-            const stats = useMemo(() => {
-                let total = 0, u1Total = 0, u2Total = 0;
-                
-                bills.forEach(b => {
-                    total += b.total;
-                    u1Total += b.u1Share;
-                    u2Total += b.u2Share;
-                });
-
-                let settlementText = 'Balanced Status';
-                if (u1Total > u2Total) settlementText = `${user2Name} owes ${user1Name} ₹${(u1Total - u2Total).toFixed(2)}`;
-                if (u2Total > u1Total) settlementText = `${user1Name} owes ${user2Name} ₹${(u2Total - u1Total).toFixed(2)}`;
-
-                return { total, u1Total, u2Total, settlementText };
-            }, [bills, user1Name, user2Name]);
 
             const shareWhatsApp = () => {
-                let text = `*💳 BillSplit Pro Summary*\n\n`;
-                text += `*Total Expenses:* ₹${stats.total.toFixed(2)}\n`;
-                text += `*${user1Name}'s Total:* ₹${stats.u1Total.toFixed(2)}\n`;
-                text += `*${user2Name}'s Total:* ₹${stats.u2Total.toFixed(2)}\n\n`;
-                text += `✅ *Settlement:* ${stats.settlementText}\n\n`;
+                let text = `*💳 BillSplit Pro: ${selectedMonth}*\n\n`;
+                text += `*Total Bills:* ₹${activeCardsData.summary.total.toFixed(2)}\n`;
+                text += `*${user1Name}:* ₹${activeCardsData.summary.u1Total.toFixed(2)}\n`;
+                text += `*${user2Name}:* ₹${activeCardsData.summary.u2Total.toFixed(2)}\n\n`;
+                text += `✅ *Action:* ${activeCardsData.summary.settlementText}\n\n`;
                 text += `➖➖➖➖➖➖➖➖\n`;
-                text += `*📄 Card-by-Card Breakdown:*\n\n`;
+                text += `*📄 Breakdown:*\n\n`;
 
-                bills.forEach(b => {
-                    text += `*${b.cardName}*: ₹${b.total.toFixed(2)}\n`;
-                    text += `   ↳ ${user1Name}: ₹${b.u1Share.toFixed(2)} | ${user2Name}: ₹${b.u2Share.toFixed(2)}\n`;
-                    
-                    if (b.overrides.length > 0) {
-                        b.overrides.forEach(ov => {
+                activeCardsData.cards.forEach(c => {
+                    text += `*${c.cardName}*: ₹${c.total.toFixed(2)}\n`;
+                    text += `   ↳ ${user1Name}: ₹${c.u1Share.toFixed(2)} | ${user2Name}: ₹${c.u2Share.toFixed(2)}\n`;
+                    if (c.overrides.length > 0) {
+                        c.overrides.forEach(ov => {
                             text += `   📌 _${ov.desc}_ (${ov.owner}): ₹${ov.amount.toFixed(2)}\n`;
                         });
                     }
@@ -175,138 +197,105 @@
 
             return (
                 <div className="max-w-md mx-auto bg-white min-h-screen shadow-lg pb-20 relative">
-                    <header className="bg-teal-700 text-white p-4 sticky top-0 z-10 shadow-md flex justify-between items-center">
-                        <h1 className="text-xl font-bold"><i className="fa-solid fa-file-invoice-dollar mr-2"></i>BillSplit Pro</h1>
-                        <button onClick={() => setView('settings')} className="text-white hover:text-teal-200 p-1">
+                    <header className="bg-teal-700 text-white p-4 sticky top-0 z-20 shadow-md flex justify-between items-center">
+                        <h1 className="text-xl font-bold"><i className="fa-solid fa-file-invoice-dollar mr-2"></i>BillSplit</h1>
+                        <button onClick={() => setView('settings')} className="text-white hover:text-teal-200">
                             <i className="fa-solid fa-gear text-lg"></i>
                         </button>
                     </header>
 
                     <main className="p-4">
-                        {/* DASHBOARD VIEW */}
-                        {view === 'dashboard' && (
+                        {/* ENTRY VIEW (ONE-GO) */}
+                        {view === 'entry' && (
+                            <div className="space-y-4">
+                                <div className="bg-teal-50 border border-teal-100 p-4 rounded-xl flex justify-between items-center shadow-sm">
+                                    <span className="font-bold text-teal-800">Billing Month:</span>
+                                    <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border p-2 rounded-lg text-sm bg-white font-semibold text-gray-800 outline-none focus:ring-2 focus:ring-teal-500" />
+                                </div>
+
+                                <div className="flex justify-between items-end mb-2">
+                                    <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">Enter Card Totals</h2>
+                                    <button onClick={clearForm} className="text-xs text-red-500 font-semibold hover:underline">Clear All</button>
+                                </div>
+
+                                {CARDS.map(card => (
+                                    <div key={card} className={`border rounded-xl p-3 transition-colors ${formData[card].total ? 'bg-white shadow-sm border-teal-300' : 'bg-gray-50 border-gray-200'}`}>
+                                        <div className="flex justify-between items-center">
+                                            <label className={`text-sm font-bold ${formData[card].total ? 'text-teal-800' : 'text-gray-600'}`}>{card}</label>
+                                            <input type="number" placeholder="₹ 0.00" value={formData[card].total} onChange={e => handleTotalChange(card, e.target.value)} className="w-1/3 border p-2 rounded text-right font-bold text-gray-800 bg-white focus:ring-2 focus:ring-teal-500 outline-none" />
+                                        </div>
+
+                                        {formData[card].total && (
+                                            <div className="mt-3 pt-3 border-t border-gray-100">
+                                                {formData[card].overrides.map(ov => (
+                                                    <div key={ov.id} className="flex gap-2 mb-2 relative bg-gray-50 p-2 rounded">
+                                                        <button onClick={() => removeOverride(card, ov.id)} className="absolute -top-1 -right-1 bg-red-100 text-red-600 rounded-full w-4 h-4 flex items-center justify-center"><i className="fa-solid fa-xmark text-[10px]"></i></button>
+                                                        <input type="text" placeholder="Deduction desc..." value={ov.desc} onChange={e => updateOverride(card, ov.id, 'desc', e.target.value)} className="w-2/5 text-xs p-1 rounded border" />
+                                                        <input type="number" placeholder="₹" value={ov.amount} onChange={e => updateOverride(card, ov.id, 'amount', e.target.value)} className="w-1/4 text-xs p-1 rounded border" />
+                                                        <select value={ov.owner} onChange={e => updateOverride(card, ov.id, 'owner', e.target.value)} className="w-1/3 text-xs p-1 rounded border bg-white">
+                                                            <option value={user1Name}>{user1Name}</option>
+                                                            <option value={user2Name}>{user2Name}</option>
+                                                        </select>
+                                                    </div>
+                                                ))}
+                                                <button onClick={() => addOverride(card)} className="text-xs text-teal-600 font-bold flex items-center gap-1 hover:text-teal-800">
+                                                    <i className="fa-solid fa-plus-circle"></i> Specific Deduction
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* SUMMARY VIEW */}
+                        {view === 'summary' && (
                             <div className="space-y-6">
                                 <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm text-center">
-                                    <p className="text-gray-500 text-sm mb-1">Total Statement Spend</p>
-                                    <h2 className="text-3xl font-bold text-gray-800">₹{stats.total.toFixed(2)}</h2>
-                                    <p className="text-teal-600 font-semibold mt-2 bg-teal-50 inline-block px-3 py-1 rounded-full">{stats.settlementText}</p>
+                                    <p className="text-gray-500 text-sm mb-1">{selectedMonth} Total</p>
+                                    <h2 className="text-3xl font-bold text-gray-800">₹{activeCardsData.summary.total.toFixed(2)}</h2>
+                                    <p className="text-teal-600 font-semibold mt-2 bg-teal-50 inline-block px-3 py-1 rounded-full">{activeCardsData.summary.settlementText}</p>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
                                         <p className="text-blue-600 text-sm font-semibold mb-1">{user1Name}</p>
-                                        <p className="text-xl font-bold text-blue-900">₹{stats.u1Total.toFixed(2)}</p>
+                                        <p className="text-xl font-bold text-blue-900">₹{activeCardsData.summary.u1Total.toFixed(2)}</p>
                                     </div>
                                     <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-center">
                                         <p className="text-purple-600 text-sm font-semibold mb-1">{user2Name}</p>
-                                        <p className="text-xl font-bold text-purple-900">₹{stats.u2Total.toFixed(2)}</p>
+                                        <p className="text-xl font-bold text-purple-900">₹{activeCardsData.summary.u2Total.toFixed(2)}</p>
                                     </div>
                                 </div>
 
-                                {/* LIST OF LOGGED BILLS */}
-                                {bills.length > 0 ? (
-                                    <div className="space-y-3">
-                                        <h3 className="font-bold text-gray-700 border-b pb-2"><i className="fa-solid fa-list-check mr-2"></i>Logged Statements</h3>
-                                        {bills.map(b => (
-                                            <div key={b.id} className="bg-white border rounded-xl shadow-sm p-4 relative">
-                                                <button onClick={() => deleteBill(b.id)} className="absolute top-3 right-3 text-red-400 hover:text-red-600"><i className="fa-solid fa-trash-can"></i></button>
-                                                
-                                                <p className="font-bold text-gray-800 text-lg mb-1">{b.cardName}</p>
-                                                <p className="font-semibold text-teal-700 mb-3">Total Bill: ₹{b.total.toFixed(2)}</p>
-                                                
-                                                <div className="bg-gray-50 rounded-lg p-2 text-sm text-gray-600 mb-2">
-                                                    <div className="flex justify-between font-semibold text-gray-700">
-                                                        <span>{user1Name} Share:</span>
-                                                        <span>₹{b.u1Share.toFixed(2)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between font-semibold text-gray-700">
-                                                        <span>{user2Name} Share:</span>
-                                                        <span>₹{b.u2Share.toFixed(2)}</span>
-                                                    </div>
-                                                </div>
-
-                                                {b.overrides.length > 0 && (
-                                                    <div className="mt-2 border-t pt-2">
-                                                        <p className="text-xs font-semibold text-gray-500 mb-1">Specific Deductions Applied:</p>
-                                                        {b.overrides.map((ov, i) => (
-                                                            <div key={i} className="flex justify-between text-xs text-gray-600">
-                                                                <span>- {ov.desc} ({ov.owner})</span>
-                                                                <span className="font-semibold">₹{ov.amount.toFixed(2)}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                <div className="space-y-3">
+                                    {activeCardsData.cards.map(c => (
+                                        <div key={c.cardName} className="bg-white border rounded-xl p-4 shadow-sm">
+                                            <div className="flex justify-between font-bold text-gray-800 border-b pb-2 mb-2">
+                                                <span>{c.cardName}</span>
+                                                <span>₹{c.total.toFixed(2)}</span>
                                             </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center text-gray-400 py-10">
-                                        <i className="fa-regular fa-credit-card text-4xl mb-3 opacity-50"></i>
-                                        <p>No card bills logged yet.</p>
-                                    </div>
-                                )}
-
-                                {bills.length > 0 && (
-                                    <button onClick={shareWhatsApp} className="w-full bg-green-500 text-white p-3 rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-green-600 shadow-md">
-                                        <i className="fa-brands fa-whatsapp text-xl"></i> Share Summary via WhatsApp
-                                    </button>
-                                )}
-                            </div>
-                        )}
-
-                        {/* ADD BILL VIEW */}
-                        {view === 'add' && (
-                            <div className="space-y-4">
-                                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                                    <h2 className="text-lg font-bold text-teal-800 mb-4 border-b pb-2">Log Card Statement</h2>
-                                    
-                                    <form onSubmit={saveBill} className="space-y-5">
-                                        {/* Step 1: Total Amount */}
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-1">1. Select Card</label>
-                                            <select value={activeCard} onChange={e => setActiveCard(e.target.value)} className="w-full border p-3 rounded-lg bg-gray-50 text-gray-800 font-medium focus:ring-2 focus:ring-teal-500 outline-none">
-                                                {CARDS.map(c => <option key={c} value={c}>{c}</option>)}
-                                            </select>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-1">2. Statement Total (₹)</label>
-                                            <input type="number" step="0.01" value={activeTotal} onChange={e => setActiveTotal(e.target.value)} placeholder="e.g., 50000" className="w-full border p-3 rounded-lg text-lg font-bold text-teal-800 bg-teal-50 focus:ring-2 focus:ring-teal-500 outline-none" required />
-                                        </div>
-
-                                        {/* Step 2: Overrides */}
-                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <label className="block text-sm font-bold text-gray-700">3. Specific Deductions (Optional)</label>
+                                            <div className="flex justify-between text-sm text-gray-600 mb-2">
+                                                <span>{user1Name}: ₹{c.u1Share.toFixed(2)}</span>
+                                                <span>{user2Name}: ₹{c.u2Share.toFixed(2)}</span>
                                             </div>
-                                            <p className="text-xs text-gray-500 mb-4 leading-relaxed">Enter any amounts that should be subtracted from the total and charged 100% to one person. The remaining bill will be split automatically.</p>
-
-                                            {activeOverrides.map((ov, index) => (
-                                                <div key={ov.id} className="flex flex-col gap-2 bg-white p-3 rounded border shadow-sm mb-3 relative">
-                                                    <button type="button" onClick={() => removeOverride(ov.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-200"><i className="fa-solid fa-xmark text-xs"></i></button>
-                                                    
-                                                    <input type="text" placeholder="Description (e.g. Flight Ticket)" value={ov.desc} onChange={e => updateOverride(ov.id, 'desc', e.target.value)} className="w-full border-b p-1 text-sm focus:outline-none focus:border-teal-500" required />
-                                                    
-                                                    <div className="flex gap-2 mt-1">
-                                                        <input type="number" placeholder="Amount (₹)" value={ov.amount} onChange={e => updateOverride(ov.id, 'amount', e.target.value)} className="w-1/2 border p-2 rounded text-sm focus:outline-none focus:border-teal-500" required />
-                                                        
-                                                        <select value={ov.owner} onChange={e => updateOverride(ov.id, 'owner', e.target.value)} className="w-1/2 border p-2 rounded text-sm bg-gray-50 focus:outline-none">
-                                                            <option value={user1Name}>100% {user1Name}</option>
-                                                            <option value={user2Name}>100% {user2Name}</option>
-                                                        </select>
-                                                    </div>
+                                            {c.overrides.map((ov, i) => (
+                                                <div key={i} className="text-xs text-gray-500 flex justify-between bg-gray-50 p-1 rounded">
+                                                    <span>↳ {ov.desc} ({ov.owner})</span>
+                                                    <span className="font-semibold text-gray-700">₹{ov.amount.toFixed(2)}</span>
                                                 </div>
                                             ))}
-
-                                            <button type="button" onClick={addOverrideRow} className="w-full border-2 border-dashed border-teal-300 text-teal-700 p-2 rounded-lg font-semibold text-sm hover:bg-teal-50 transition-colors">
-                                                <i className="fa-solid fa-plus mr-1"></i> Add Specific Deduction
-                                            </button>
                                         </div>
+                                    ))}
+                                </div>
 
-                                        <button type="submit" className="w-full bg-teal-700 text-white p-3 rounded-lg font-bold text-lg hover:bg-teal-800 shadow-md transition-colors">
-                                            Save & Calculate Split
-                                        </button>
-                                    </form>
+                                <div className="flex gap-2">
+                                    <button onClick={shareWhatsApp} className="w-1/2 bg-green-500 text-white p-3 rounded-lg font-bold flex justify-center items-center gap-2 hover:bg-green-600">
+                                        <i className="fa-brands fa-whatsapp text-lg"></i> Share
+                                    </button>
+                                    <button onClick={syncToSheets} disabled={isSyncing} className="w-1/2 bg-teal-700 text-white p-3 rounded-lg font-bold flex justify-center items-center gap-2 hover:bg-teal-800">
+                                        {isSyncing ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>} Sync
+                                    </button>
                                 </div>
                             </div>
                         )}
@@ -314,38 +303,37 @@
                         {/* SETTINGS VIEW */}
                         {view === 'settings' && (
                             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-4">
-                                <h3 className="font-bold text-gray-700 border-b pb-2"><i className="fa-solid fa-users mr-2"></i>Profile Settings</h3>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-600 mb-1">Primary User</label>
-                                        <input type="text" id="setting_u1" defaultValue={user1Name} className="w-full border p-3 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-600 mb-1">Secondary User</label>
-                                        <input type="text" id="setting_u2" defaultValue={user2Name} className="w-full border p-3 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-500" />
-                                    </div>
-                                    <button onClick={() => saveSettings(
-                                        document.getElementById('setting_u1').value,
-                                        document.getElementById('setting_u2').value
-                                    )} className="w-full bg-gray-800 text-white p-3 rounded-lg font-semibold hover:bg-gray-900 transition-colors">
-                                        Update Names
-                                    </button>
+                                <h3 className="font-bold text-gray-700 border-b pb-2"><i className="fa-solid fa-gears mr-2"></i>Configuration</h3>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1">Apps Script Web App URL</label>
+                                    <input type="text" value={scriptUrl} onChange={e => {setScriptUrl(e.target.value); localStorage.setItem('bs_script_url', e.target.value);}} className="w-full border p-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                                 </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-500 mb-1">User 1</label>
+                                        <input type="text" value={user1Name} onChange={e => {setUser1Name(e.target.value); localStorage.setItem('bs_user1_name', e.target.value);}} className="w-full border p-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-500 mb-1">User 2</label>
+                                        <input type="text" value={user2Name} onChange={e => {setUser2Name(e.target.value); localStorage.setItem('bs_user2_name', e.target.value);}} className="w-full border p-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                                    </div>
+                                </div>
+                                <button onClick={() => setView('entry')} className="w-full bg-gray-800 text-white p-3 rounded-lg font-bold mt-4">Save & Close</button>
                             </div>
                         )}
                     </main>
 
                     {/* Bottom Navigation */}
-                    <nav className="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 pb-safe z-20">
-                        <button onClick={() => setView('dashboard')} className={`flex flex-col items-center flex-1 transition-colors ${view === 'dashboard' ? 'text-teal-700' : 'text-gray-400 hover:text-gray-600'}`}>
-                            <i className="fa-solid fa-chart-pie text-xl mb-1"></i>
-                            <span className="text-[10px] font-bold tracking-wide uppercase">Summary</span>
+                    <nav className="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 pb-safe z-30 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+                        <button onClick={() => setView('entry')} className={`flex flex-col items-center flex-1 ${view === 'entry' ? 'text-teal-700' : 'text-gray-400'}`}>
+                            <i className="fa-solid fa-keyboard text-xl mb-1"></i>
+                            <span className="text-[10px] font-bold tracking-wide uppercase">Entry</span>
                         </button>
-                        <button onClick={() => setView('add')} className={`flex flex-col items-center flex-1 transition-colors ${view === 'add' ? 'text-teal-700' : 'text-gray-400 hover:text-gray-600'}`}>
-                            <div className="bg-teal-700 text-white rounded-full w-12 h-12 flex items-center justify-center -mt-6 border-4 border-white shadow-md">
-                                <i className="fa-solid fa-plus text-xl"></i>
+                        <button onClick={() => setView('summary')} className={`flex flex-col items-center flex-1 ${view === 'summary' ? 'text-teal-700' : 'text-gray-400'}`}>
+                            <div className={`rounded-full w-12 h-12 flex items-center justify-center -mt-6 border-4 border-white shadow-md transition-colors ${activeCardsData.cards.length > 0 ? 'bg-teal-700 text-white' : 'bg-gray-300 text-gray-500'}`}>
+                                <i className="fa-solid fa-chart-pie text-xl"></i>
                             </div>
-                            <span className="text-[10px] font-bold tracking-wide uppercase mt-1">Log Bill</span>
+                            <span className="text-[10px] font-bold tracking-wide uppercase mt-1">Summary</span>
                         </button>
                     </nav>
                 </div>
