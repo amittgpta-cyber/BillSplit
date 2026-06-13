@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
@@ -70,50 +71,85 @@
                 setView('dashboard');
             };
 
-            const handleFileUpload = (e) => {
+           const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
     let allParsedTxns = [];
-    let filesProcessed = 0;
 
-    files.forEach(file => {
-        Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: (results) => {
-                const parsedTxns = results.data.map(row => {
-                    const date = row['Date'] || row['Transaction Date'] || new Date().toISOString().split('T')[0];
-                    const desc = row['Description'] || row['Narration'] || row['Details'] || 'Transaction Line Item';
-                    const amt = parseFloat(row['Amount'] || row['Debit'] || row['Value'] || 0);
-                    
-                    if (amt > 0) {
-                        return {
-                            id: crypto.randomUUID(),
-                            date: date,
-                            description: desc,
-                            amount: amt,
-                            category: 'Adhoc',
-                            card: CARDS[0],
-                            type: 'Credit Card',
-                            owner: 'Split',
-                            source: file.name // This will now show which CSV it came from
-                        };
-                    }
-                    return null;
-                }).filter(t => t !== null);
+    for (const file of files) {
+        const fileExtension = file.name.split('.').pop().toLowerCase();
 
-                allParsedTxns = [...allParsedTxns, ...parsedTxns];
-                filesProcessed++;
+        const processData = (data) => {
+            const parsedTxns = data.map(row => {
+                // ICICI specific header fallbacks
+                const date = row['Date'] || row['Transaction Date'] || row['DATE'] || new Date().toISOString().split('T')[0];
+                const desc = row['Description'] || row['Narration'] || row['Transaction Details'] || row['PARTICULARS'] || 'Unknown Transaction';
+                
+                // Handle standard Amount, or specific Debit/Withdrawal columns
+                let amt = parseFloat(row['Amount'] || row['Amount (INR)'] || row['Debit'] || row['Withdrawal Amount (INR)'] || 0);
+                
+                // Some statements show debits as negative, we want positive numbers for the app
+                amt = Math.abs(amt);
+                
+                // Ignore empty rows or credit/payment rows (unless you want to track payments)
+                const isCredit = row['Credit'] || row['Deposit Amount (INR)'];
 
-                // Once all files are parsed, update the state
-                if (filesProcessed === files.length) {
-                    setTransactions(prev => [...prev, ...allParsedTxns]);
-                    setView('transactions');
+                if (amt > 0 && !isCredit) {
+                    return {
+                        id: crypto.randomUUID(),
+                        date: date,
+                        description: desc,
+                        amount: amt,
+                        category: 'Adhoc',
+                        card: CARDS[0],
+                        type: 'Credit Card',
+                        owner: 'Split',
+                        source: file.name
+                    };
                 }
-            }
-        });
-    });
+                return null;
+            }).filter(t => t !== null);
+
+            allParsedTxns = [...allParsedTxns, ...parsedTxns];
+        };
+
+        if (fileExtension === 'csv') {
+            // Handle CSV using PapaParse
+            await new Promise(resolve => {
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        processData(results.data);
+                        resolve();
+                    }
+                });
+            });
+        } else if (fileExtension === 'xls' || fileExtension === 'xlsx') {
+            // Handle Excel using SheetJS
+            await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                
+                    const bstr = evt.target.result;
+                    const wb = XLSX.read(bstr, { type: 'binary' });
+                    // Grab the first sheet
+                    const wsname = wb.SheetNames[0];
+                    const ws = wb.Sheets[wsname];
+                    // Convert sheet to JSON array
+                    const data = XLSX.utils.sheet_to_json(ws, { defval: "" });
+                    processData(data);
+                    resolve();
+                };
+                reader.readAsBinaryString(file);
+            });
+        }
+    }
+
+    // Update state once all files are processed
+    setTransactions(prev => [...prev, ...allParsedTxns]);
+    setView('transactions');
 };
 
             const addManualEntry = (e) => {
@@ -280,7 +316,7 @@
                             <div className="space-y-6">
                                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                                     <h3 className="font-bold text-gray-700 mb-4 border-b pb-2"><i className="fa-solid fa-file-csv mr-2"></i>Statement Matrix Upload</h3>
-                                    <input type="file" multiple accept=".csv" onChange={handleFileUpload} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100" />
+                                    <input type="file" multiple accept=".csv, .xls, .xlsx" onChange={handleFileUpload} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100" />
                                 </div>
 
                                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
