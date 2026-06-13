@@ -71,75 +71,111 @@
                 setView('dashboard');
             };
 
-           const handleFileUpload = async (e) => {
+const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
     let allParsedTxns = [];
 
+    // Smart function to process raw 2D array data, skipping junk rows
+    const processData = (arrayOfArrays, fileName) => {
+        let headerRowIndex = -1;
+        let headers = [];
+
+        // 1. Scan the first 30 rows to find the actual table headers
+        for (let i = 0; i < Math.min(arrayOfArrays.length, 30); i++) {
+            const row = arrayOfArrays[i];
+            if (!row) continue;
+            
+            const rowString = row.map(cell => String(cell).toLowerCase()).join(' ');
+            
+            // Look for a row that has 'date' AND some variation of amount/debit
+            if ((rowString.includes('date') && (rowString.includes('amount') || rowString.includes('debit') || rowString.includes('particulars') || rowString.includes('details')))) {
+                headerRowIndex = i;
+                headers = row.map(h => String(h).trim().toLowerCase());
+                break;
+            }
+        }
+
+        if (headerRowIndex === -1) {
+            console.warn(`Could not find standard headers in ${fileName}`);
+            return;
+        }
+
+        // 2. Identify which column is which, no matter what the bank calls them
+        const dateIdx = headers.findIndex(h => h.includes('date'));
+        const descIdx = headers.findIndex(h => h.includes('description') || h.includes('narration') || h.includes('particulars') || h.includes('details'));
+        
+        // Find Debit specifically, or fallback to general Amount
+        let amtIdx = headers.findIndex(h => h === 'debit' || h.includes('withdrawal'));
+        if (amtIdx === -1) amtIdx = headers.findIndex(h => h.includes('amount'));
+        
+        // Find Credit/Payment column so we can ignore card bill payments
+        const crIdx = headers.findIndex(h => h.includes('credit') || h.includes('deposit'));
+
+        // 3. Extract the transactions!
+        const parsedTxns = [];
+        for (let i = headerRowIndex + 1; i < arrayOfArrays.length; i++) {
+            const row = arrayOfArrays[i];
+            if (!row || row.length === 0 || !row[dateIdx]) continue; // Skip empty rows
+
+            const date = String(row[dateIdx]).trim();
+            const desc = String(row[descIdx] || 'Unknown Transaction').trim();
+            
+            // Clean the amount string (remove commas, handle ₹ signs, fix empty strings)
+            const rawAmt = String(row[amtIdx] || '0').replace(/[^0-9.-]+/g, '');
+            let amt = parseFloat(rawAmt);
+            
+            // Clean credit amount
+            const rawCr = crIdx >= 0 ? String(row[crIdx] || '0').replace(/[^0-9.-]+/g, '') : '0';
+            const creditAmt = parseFloat(rawCr);
+
+            if (isNaN(amt)) amt = 0;
+
+            // Only add if there is a spend amount, and it's not a payment TO the card
+            if (amt > 0 && creditAmt === 0 && !desc.toLowerCase().includes('payment received')) {
+                parsedTxns.push({
+                    id: crypto.randomUUID(),
+                    date: date,
+                    description: desc,
+                    amount: Math.abs(amt),
+                    category: 'Adhoc', // Default, user categorizes later
+                    card: CARDS[0],    // Default, user selects card later
+                    type: 'Credit Card',
+                    owner: 'Split',
+                    source: fileName
+                });
+            }
+        }
+        allParsedTxns = [...allParsedTxns, ...parsedTxns];
+    };
+
+    // Process all dropped files
     for (const file of files) {
         const fileExtension = file.name.split('.').pop().toLowerCase();
 
-        const processData = (data) => {
-            const parsedTxns = data.map(row => {
-                // ICICI specific header fallbacks
-                const date = row['Date'] || row['Transaction Date'] || row['DATE'] || new Date().toISOString().split('T')[0];
-                const desc = row['Description'] || row['Narration'] || row['Transaction Details'] || row['PARTICULARS'] || 'Unknown Transaction';
-                
-                // Handle standard Amount, or specific Debit/Withdrawal columns
-                let amt = parseFloat(row['Amount'] || row['Amount (INR)'] || row['Debit'] || row['Withdrawal Amount (INR)'] || 0);
-                
-                // Some statements show debits as negative, we want positive numbers for the app
-                amt = Math.abs(amt);
-                
-                // Ignore empty rows or credit/payment rows (unless you want to track payments)
-                const isCredit = row['Credit'] || row['Deposit Amount (INR)'];
-
-                if (amt > 0 && !isCredit) {
-                    return {
-                        id: crypto.randomUUID(),
-                        date: date,
-                        description: desc,
-                        amount: amt,
-                        category: 'Adhoc',
-                        card: CARDS[0],
-                        type: 'Credit Card',
-                        owner: 'Split',
-                        source: file.name
-                    };
-                }
-                return null;
-            }).filter(t => t !== null);
-
-            allParsedTxns = [...allParsedTxns, ...parsedTxns];
-        };
-
         if (fileExtension === 'csv') {
-            // Handle CSV using PapaParse
             await new Promise(resolve => {
                 Papa.parse(file, {
-                    header: true,
+                    header: false, // Turn off strict headers so we can find them manually
                     skipEmptyLines: true,
                     complete: (results) => {
-                        processData(results.data);
+                        processData(results.data, file.name);
                         resolve();
                     }
                 });
             });
         } else if (fileExtension === 'xls' || fileExtension === 'xlsx') {
-            // Handle Excel using SheetJS
             await new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (evt) => {
-                
                     const bstr = evt.target.result;
                     const wb = XLSX.read(bstr, { type: 'binary' });
-                    // Grab the first sheet
                     const wsname = wb.SheetNames[0];
                     const ws = wb.Sheets[wsname];
-                    // Convert sheet to JSON array
-                    const data = XLSX.utils.sheet_to_json(ws, { defval: "" });
-                    processData(data);
+                    // Read Excel as raw 2D Array
+                    const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+                    processData(data, file.name);
                     resolve();
                 };
                 reader.readAsBinaryString(file);
@@ -147,9 +183,13 @@
         }
     }
 
-    // Update state once all files are processed
-    setTransactions(prev => [...prev, ...allParsedTxns]);
-    setView('transactions');
+    // Final check to alert you if nothing worked
+    if (allParsedTxns.length === 0) {
+        alert("No valid transactions found. Make sure you are uploading a bank statement CSV or Excel file.");
+    } else {
+        setTransactions(prev => [...prev, ...allParsedTxns]);
+        setView('transactions');
+    }
 };
 
             const addManualEntry = (e) => {
