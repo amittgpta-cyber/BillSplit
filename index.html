@@ -86,6 +86,7 @@
                 setView('dashboard');
             };
 
+            // THE SUPER PARSER
             const handleFileUpload = async (e, targetCard) => {
                 const files = Array.from(e.target.files);
                 if (files.length === 0) return;
@@ -96,13 +97,15 @@
                     let headerRowIndex = -1;
                     let headers = [];
 
+                    // 1. Scan for headers
                     for (let i = 0; i < Math.min(arrayOfArrays.length, 30); i++) {
                         const row = arrayOfArrays[i];
                         if (!row) continue;
                         
                         const rowString = row.map(cell => String(cell).toLowerCase()).join(' ');
                         
-                        if ((rowString.includes('date') && (rowString.includes('amount') || rowString.includes('debit') || rowString.includes('particulars') || rowString.includes('details')))) {
+                        if ((rowString.includes('date') || rowString.includes('time')) && 
+                            (rowString.includes('amt') || rowString.includes('amount') || rowString.includes('debit') || rowString.includes('value'))) {
                             headerRowIndex = i;
                             headers = row.map(h => String(h).trim().toLowerCase());
                             break;
@@ -114,32 +117,43 @@
                         return;
                     }
 
-                    const dateIdx = headers.findIndex(h => h.includes('date'));
-                    const descIdx = headers.findIndex(h => h.includes('description') || h.includes('narration') || h.includes('particulars') || h.includes('details'));
+                    // 2. Identify target columns
+                    const dateIdx = headers.findIndex(h => h.includes('date') || h.includes('time'));
+                    const descIdx = headers.findIndex(h => h.includes('desc') || h.includes('narr') || h.includes('partic') || h.includes('detail') || h.includes('merchant'));
                     
-                    let amtIdx = headers.findIndex(h => h === 'debit' || h.includes('withdrawal'));
-                    if (amtIdx === -1) amtIdx = headers.findIndex(h => h.includes('amount'));
+                    // Specific HDFC AMT column mapping
+                    let amtIdx = headers.findIndex(h => h === 'amt' || h === 'amount' || h === 'value' || h === 'inr');
+                    if (amtIdx === -1) amtIdx = headers.findIndex(h => h.includes('amount') || h.includes('amt'));
+                    if (amtIdx === -1) amtIdx = headers.findIndex(h => (h.includes('debit') || h.includes('withdraw')) && !h.includes('credit'));
                     
-                    const crIdx = headers.findIndex(h => h.includes('credit') || h.includes('deposit'));
+                    // Look for HDFC 'Debit /Credit' column or separate Credit column
+                    const crDrIdx = headers.findIndex(h => h.includes('debit /credit') || h.includes('cr/dr'));
+                    const crIdx = headers.findIndex(h => h === 'credit' || h.includes('deposit'));
 
+                    // 3. Extract Transactions
                     const parsedTxns = [];
                     for (let i = headerRowIndex + 1; i < arrayOfArrays.length; i++) {
                         const row = arrayOfArrays[i];
                         if (!row || row.length === 0 || !row[dateIdx]) continue;
 
-                        const date = String(row[dateIdx]).trim();
+                        // Clean up Date (Removes the time string if present)
+                        const date = String(row[dateIdx]).trim().split(' ')[0];
                         const desc = String(row[descIdx] || 'Unknown Transaction').trim();
                         
-                        const rawAmt = String(row[amtIdx] || '0').replace(/[^0-9.-]+/g, '');
+                        // Extract Amount
+                        const amtString = String(row[amtIdx] || '0');
+                        const rawAmt = amtString.replace(/[^0-9.-]+/g, '');
                         let amt = parseFloat(rawAmt);
-                        
-                        const rawCr = crIdx >= 0 ? String(row[crIdx] || '0').replace(/[^0-9.-]+/g, '') : '0';
-                        const creditAmt = parseFloat(rawCr);
-
                         if (isNaN(amt)) amt = 0;
 
-                        if (amt > 0 && creditAmt === 0 && !desc.toLowerCase().includes('payment received')) {
-                            // Apply the pre-selected target card to every transaction
+                        // Credit Logic (Cashback, Payments, Refunds)
+                        let isCredit = false;
+                        if (crDrIdx >= 0 && String(row[crDrIdx]).toUpperCase().includes('CR')) isCredit = true;
+                        if (crIdx >= 0 && parseFloat(String(row[crIdx] || '0').replace(/[^0-9.-]+/g, '')) > 0) isCredit = true;
+                        if (amtString.toUpperCase().includes('CR')) isCredit = true;
+
+                        // Only add spend (>0, no CR tags, not a bill payment)
+                        if (amt > 0 && !isCredit && !desc.toLowerCase().includes('payment')) {
                             parsedTxns.push({
                                 id: crypto.randomUUID(),
                                 date: date,
@@ -160,15 +174,28 @@
                     const fileExtension = file.name.split('.').pop().toLowerCase();
 
                     if (fileExtension === 'csv') {
-                        await new Promise(resolve => {
-                            Papa.parse(file, {
-                                header: false,
-                                skipEmptyLines: true,
-                                complete: (results) => {
-                                    processData(results.data, file.name);
+                        await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = (evt) => {
+                                const text = evt.target.result;
+                                // Handle HDFC's weird ~|~ format
+                                if (text.includes('~|~')) {
+                                    const arrayOfArrays = text.split('\n').map(row => row.split('~|~').map(cell => cell.trim()));
+                                    processData(arrayOfArrays, file.name);
                                     resolve();
+                                } else {
+                                    // Handle standard comma CSVs
+                                    Papa.parse(text, {
+                                        header: false,
+                                        skipEmptyLines: true,
+                                        complete: (results) => {
+                                            processData(results.data, file.name);
+                                            resolve();
+                                        }
+                                    });
                                 }
-                            });
+                            };
+                            reader.readAsText(file);
                         });
                     } else if (fileExtension === 'xls' || fileExtension === 'xlsx') {
                         await new Promise((resolve) => {
@@ -191,7 +218,6 @@
                     alert("No valid transactions found. Make sure you are uploading a bank statement CSV or Excel file.");
                 } else {
                     setTransactions(prev => [...prev, ...allParsedTxns]);
-                    // Clear the input so the same file can be selected again if needed
                     e.target.value = null; 
                     setView('transactions');
                 }
@@ -372,7 +398,7 @@
                                     </div>
                                 </div>
 
-                                {/* CARD BIFURCATION BIFURCATION SECTION */}
+                                {/* CARD BIFURCATION SECTION */}
                                 {transactions.length > 0 && (
                                     <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
                                         <div className="bg-gray-50 p-3 border-b">
