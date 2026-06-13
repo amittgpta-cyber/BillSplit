@@ -42,24 +42,23 @@
             };
             const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
 
-            // Initialize form state for Cards
             const [formData, setFormData] = useState(() => {
                 const initial = {};
                 CARDS.forEach(c => initial[c] = { total: '', overrides: [] });
                 return initial;
             });
 
-            // Initialize form state for Offline Spends
             const initOfflineSpends = () => DEFAULT_OFFLINE_SPENDS.map(desc => ({
                 id: crypto.randomUUID(),
                 desc: desc,
                 amount: '',
-                owner: 'Auto', // 'Auto' pulls from the rules engine
+                owner: 'Auto', 
                 isCustom: false
             }));
             const [offlineSpends, setOfflineSpends] = useState(initOfflineSpends());
 
-            // The Core Rules Engine
+            const [loans, setLoans] = useState([]);
+
             const rules = useMemo(() => ({
                 cards: {
                     'HDFC Swiggy': user2Name,
@@ -77,7 +76,6 @@
                 }
             }), [user1Name, user2Name]);
 
-            // === FETCH INITIAL DATA ===
             useEffect(() => {
                 if (scriptUrl) fetchLastMonth();
             }, [scriptUrl]);
@@ -95,7 +93,6 @@
                 }
             };
 
-            // === FORM HANDLERS: CARDS ===
             const handleTotalChange = (card, value) => {
                 setFormData(prev => ({ ...prev, [card]: { ...prev[card], total: value } }));
             };
@@ -127,7 +124,6 @@
                 }));
             };
 
-            // === FORM HANDLERS: OFFLINE SPENDS ===
             const handleOfflineChange = (id, field, value) => {
                 setOfflineSpends(prev => prev.map(exp => exp.id === id ? { ...exp, [field]: value } : exp));
             };
@@ -142,13 +138,27 @@
                 setOfflineSpends(prev => prev.filter(exp => exp.id !== id));
             };
 
-            // === GLOBAL CONTROLS ===
+            const handleLoanChange = (id, field, value) => {
+                setLoans(prev => prev.map(loan => loan.id === id ? { ...loan, [field]: value } : loan));
+            };
+
+            const addLoan = () => {
+                setLoans(prev => [...prev, {
+                    id: crypto.randomUUID(), desc: '', amount: '', borrower: user1Name
+                }]);
+            };
+
+            const removeLoan = (id) => {
+                setLoans(prev => prev.filter(loan => loan.id !== id));
+            };
+
             const resetForm = () => {
                 if (window.confirm("Are you sure you want to clear all entered data?")) {
                     const reset = {};
                     CARDS.forEach(c => reset[c] = { total: '', overrides: [] });
                     setFormData(reset);
                     setOfflineSpends(initOfflineSpends());
+                    setLoans([]);
                 }
             };
 
@@ -157,12 +167,10 @@
                 window.scrollTo(0, 0);
             };
 
-            // === CORE CALCULATIONS ===
             const activeCardsData = useMemo(() => {
                 const processed = [];
                 let grandTotal = 0, u1Grand = 0, u2Grand = 0;
 
-                // 1. Process Credit Cards
                 CARDS.forEach(cardName => {
                     const data = formData[cardName];
                     const totalAmt = parseFloat(data.total);
@@ -207,7 +215,6 @@
                     }
                 });
 
-                // 2. Process Offline/Manual Spends (Packages them into a pseudo-card for the backend)
                 let offlineTotal = 0, offU1 = 0, offU2 = 0;
                 const cleanOfflineOverrides = [];
 
@@ -216,13 +223,11 @@
                     if (!isNaN(amt) && amt > 0 && exp.desc.trim() !== '') {
                         offlineTotal += amt;
                         
-                        // Resolve 'Auto' owner based on rules engine
                         let finalOwner = exp.owner;
                         if (finalOwner === 'Auto') {
                             finalOwner = rules.categories[exp.desc] || 'Split';
                         }
 
-                        // We map this as an override so it logs cleanly in the sheet
                         cleanOfflineOverrides.push({ desc: exp.desc, amount: amt, owner: finalOwner });
 
                         if (finalOwner === user1Name) offU1 += amt;
@@ -247,20 +252,44 @@
                     u2Grand += offU2;
                 }
 
-                // 3. Final Settlement Math
-                let settlementText = 'Settled';
-                if (u1Grand > u2Grand) settlementText = `${user2Name} owes ${user1Name} ₹${(u1Grand - u2Grand).toFixed(2)}`;
-                if (u2Grand > u1Grand) settlementText = `${user1Name} owes ${user2Name} ₹${(u2Grand - u1Grand).toFixed(2)}`;
+                let loanU1 = 0, loanU2 = 0;
+                const cleanLoanOverrides = [];
+
+                loans.forEach(loan => {
+                    const amt = parseFloat(loan.amount);
+                    if (!isNaN(amt) && amt > 0 && loan.desc.trim() !== '') {
+                        cleanLoanOverrides.push({ desc: loan.desc, amount: amt, owner: `Borrower: ${loan.borrower}` });
+                        
+                        if (loan.borrower === user1Name) {
+                            loanU1 += amt;
+                            loanU2 -= amt;
+                        } else if (loan.borrower === user2Name) {
+                            loanU2 += amt;
+                            loanU1 -= amt;
+                        }
+                    }
+                });
+
+                if (cleanLoanOverrides.length > 0) {
+                    processed.push({
+                        cardName: 'Inter-Personal Adjustments',
+                        total: 0,
+                        u1Share: loanU1,
+                        u2Share: loanU2,
+                        overrides: cleanLoanOverrides
+                    });
+                    u1Grand += loanU1;
+                    u2Grand += loanU2;
+                }
 
                 return { 
                     cards: processed, 
-                    summary: { total: grandTotal, u1Total: u1Grand, u2Total: u2Grand, settlementText } 
+                    summary: { total: grandTotal, u1Total: u1Grand, u2Total: u2Grand } 
                 };
-            }, [formData, offlineSpends, rules, user1Name, user2Name]);
+            }, [formData, offlineSpends, loans, rules, user1Name, user2Name]);
 
             const hasActiveData = activeCardsData.cards.length > 0;
 
-            // === API SYNC & SHARE ===
             const syncToSheets = async () => {
                 if (!scriptUrl) return alert('Please set your Apps Script URL in settings.');
                 if (!hasActiveData) return alert('No data to sync.');
@@ -277,11 +306,11 @@
                     await fetch(scriptUrl, { method: 'POST', body: JSON.stringify(payload), mode: 'no-cors' });
                     alert(`Successfully synced ${selectedMonth} to Sheets!`);
                     
-                    // Reset and refresh
                     const reset = {};
                     CARDS.forEach(c => reset[c] = { total: '', overrides: [] });
                     setFormData(reset);
                     setOfflineSpends(initOfflineSpends());
+                    setLoans([]);
                     fetchLastMonth();
                     
                 } catch (error) {
@@ -292,24 +321,48 @@
             };
 
             const shareWhatsApp = () => {
-                let text = `*💳 BillSplit Pro: ${selectedMonth}*\n\n`;
-                text += `*Total Bills:* ₹${activeCardsData.summary.total.toFixed(2)}\n`;
-                text += `*${user1Name}:* ₹${activeCardsData.summary.u1Total.toFixed(2)}\n`;
-                text += `*${user2Name}:* ₹${activeCardsData.summary.u2Total.toFixed(2)}\n\n`;
-                text += `✅ *Action:* ${activeCardsData.summary.settlementText}\n\n`;
-                text += `➖➖➖➖➖➖➖➖\n`;
-                text += `*📄 Breakdown:*\n\n`;
+                const ccData = activeCardsData.cards.filter(c => c.cardName !== 'Offline & Fixed Spends' && c.cardName !== 'Inter-Personal Adjustments');
+                const offlineData = activeCardsData.cards.find(c => c.cardName === 'Offline & Fixed Spends');
+                const loanData = activeCardsData.cards.find(c => c.cardName === 'Inter-Personal Adjustments');
 
-                activeCardsData.cards.forEach(c => {
-                    text += `*${c.cardName}*: ₹${c.total.toFixed(2)}\n`;
-                    text += `   ↳ ${user1Name}: ₹${c.u1Share.toFixed(2)} | ${user2Name}: ₹${c.u2Share.toFixed(2)}\n`;
-                    if (c.overrides.length > 0) {
-                        c.overrides.forEach(ov => {
-                            text += `   📌 _${ov.desc}_ (${ov.owner}): ₹${ov.amount.toFixed(2)}\n`;
-                        });
-                    }
+                let text = `📊 *BILLSPLIT PRO | SUMMARY*\n`;
+                text += `🗓️ *Month:* ${selectedMonth}\n`;
+                text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+                text += `💰 *Total Spends:* ₹ ${activeCardsData.summary.total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+                text += `👦🏻 *${user1Name}'s Share:* ₹ ${activeCardsData.summary.u1Total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+                text += `👩🏻 *${user2Name}'s Share:* ₹ ${activeCardsData.summary.u2Total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+                text += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+                if (ccData.length > 0) {
+                    text += `💳 *CREDIT CARDS*\n`;
+                    ccData.forEach(c => {
+                        text += `🔸 *${c.cardName}:* ₹ ${c.total.toLocaleString('en-IN')}\n`;
+                        text += `   └ ${user1Name}: ₹ ${c.u1Share.toLocaleString('en-IN')} | ${user2Name}: ₹ ${c.u2Share.toLocaleString('en-IN')}\n`;
+                        if (c.overrides.length > 0) {
+                            c.overrides.forEach(ov => {
+                                text += `   📌 _${ov.desc}_ (${ov.owner}): ₹ ${ov.amount.toLocaleString('en-IN')}\n`;
+                            });
+                        }
+                    });
                     text += `\n`;
-                });
+                }
+
+                if (offlineData && offlineData.overrides.length > 0) {
+                    text += `🏠 *FIXED & OFFLINE SPENDS*\n`;
+                    text += `🔸 *Total:* ₹ ${offlineData.total.toLocaleString('en-IN')}\n`;
+                    text += `   └ ${user1Name}: ₹ ${offlineData.u1Share.toLocaleString('en-IN')} | ${user2Name}: ₹ ${offlineData.u2Share.toLocaleString('en-IN')}\n`;
+                    offlineData.overrides.forEach(ov => {
+                        text += `   ▪️ ${ov.desc} (${ov.owner}): ₹ ${ov.amount.toLocaleString('en-IN')}\n`;
+                    });
+                    text += `\n`;
+                }
+
+                if (loanData && loanData.overrides.length > 0) {
+                    text += `🔄 *INTER-PERSONAL ADJUSTMENTS*\n`;
+                    loanData.overrides.forEach(ov => {
+                        text += `   ▪️ ${ov.desc} (${ov.owner}): ₹ ${ov.amount.toLocaleString('en-IN')}\n`;
+                    });
+                }
 
                 window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
             };
@@ -324,7 +377,6 @@
                     </header>
 
                     <main className="p-4">
-                        {/* ================= ENTRY VIEW ================= */}
                         {view === 'entry' && (
                             <div className="space-y-5">
                                 <div className="bg-teal-50 border border-teal-100 p-4 rounded-xl flex justify-between items-center shadow-sm">
@@ -332,7 +384,6 @@
                                     <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border p-2 rounded-lg text-sm bg-white font-semibold text-gray-800 outline-none focus:ring-2 focus:ring-teal-500" />
                                 </div>
 
-                                {/* CARDS SECTION */}
                                 <div>
                                     <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3 border-b pb-1">Credit Card Bills</h2>
                                     <div className="space-y-3">
@@ -366,7 +417,6 @@
                                     </div>
                                 </div>
 
-                                {/* OFFLINE SPENDS SECTION */}
                                 <div className="mt-8">
                                     <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3 border-b pb-1">Fixed & Offline Spends</h2>
                                     <div className="space-y-2">
@@ -379,7 +429,6 @@
                                                 <input type="number" placeholder="₹ 0.00" value={exp.amount} onChange={e => handleOfflineChange(exp.id, 'amount', e.target.value)} className="w-1/4 text-xs p-2 rounded border bg-white font-bold focus:ring-1 focus:ring-teal-500 outline-none text-right" />
                                                 
                                                 <select value={exp.owner} onChange={e => handleOfflineChange(exp.id, 'owner', e.target.value)} className="w-1/3 text-xs p-2 rounded border bg-white text-gray-700">
-                                                    {/* Auto dynamically routes to whoever owns this category in the rules */}
                                                     <option value="Auto">Auto (Rule)</option> 
                                                     <option value="Split">Split 50/50</option>
                                                     <option value={user1Name}>{user1Name}</option>
@@ -393,7 +442,33 @@
                                     </div>
                                 </div>
 
-                                {/* Actions Bottom Bar */}
+                                <div className="mt-8">
+                                    <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3 border-b pb-1">Inter-Personal Adjustments</h2>
+                                    <p className="text-xs text-gray-500 mb-2">Did someone take a loan or use shared funds for personal use? This will adjust the final splits without adding to the total household spend.</p>
+                                    <div className="space-y-2">
+                                        {loans.map(loan => (
+                                            <div key={loan.id} className={`flex gap-2 items-center p-2 border rounded-lg ${loan.amount ? 'bg-white border-teal-300 shadow-sm' : 'bg-gray-50'}`}>
+                                                <button onClick={() => removeLoan(loan.id)} className="text-red-400 hover:text-red-600 px-1"><i className="fa-solid fa-circle-minus"></i></button>
+                                                
+                                                <input type="text" placeholder="Details (e.g. Cash Loan)" value={loan.desc} onChange={e => handleLoanChange(loan.id, 'desc', e.target.value)} className="w-2/5 text-xs p-2 rounded border bg-white" />
+                                                
+                                                <input type="number" placeholder="₹ 0.00" value={loan.amount} onChange={e => handleLoanChange(loan.id, 'amount', e.target.value)} className="w-1/4 text-xs p-2 rounded border bg-white font-bold focus:ring-1 focus:ring-teal-500 outline-none text-right" />
+                                                
+                                                <div className="w-1/3 text-xs flex flex-col">
+                                                    <span className="text-[10px] text-gray-500 leading-none mb-1">Borrower:</span>
+                                                    <select value={loan.borrower} onChange={e => handleLoanChange(loan.id, 'borrower', e.target.value)} className="p-1 rounded border bg-white font-semibold text-gray-700">
+                                                        <option value={user1Name}>{user1Name}</option>
+                                                        <option value={user2Name}>{user2Name}</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <button onClick={addLoan} className="text-xs text-teal-600 font-bold flex items-center gap-1 hover:text-teal-800 mt-2 p-1">
+                                            <i className="fa-solid fa-plus-circle"></i> Add Adjustment
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <div className="pt-4 border-t mt-6 flex gap-3">
                                     <button onClick={resetForm} className="w-1/3 border-2 border-red-400 text-red-500 bg-red-50 rounded-lg p-3 font-bold text-sm hover:bg-red-100 transition-colors">
                                         Reset All
@@ -405,7 +480,6 @@
                             </div>
                         )}
 
-                        {/* ================= SUMMARY VIEW ================= */}
                         {view === 'summary' && (
                             <div className="space-y-6">
                                 
@@ -416,7 +490,6 @@
                                     </div>
                                 )}
 
-                                {/* Scenario A: User is currently entering new data */}
                                 {hasActiveData && !isLoadingInitial && (
                                     <>
                                         <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs p-2 rounded-lg text-center font-bold shadow-sm">
@@ -424,19 +497,18 @@
                                         </div>
                                         
                                         <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm text-center">
-                                            <p className="text-gray-500 text-sm mb-1">{selectedMonth} Total</p>
-                                            <h2 className="text-3xl font-bold text-gray-800">₹{activeCardsData.summary.total.toFixed(2)}</h2>
-                                            <p className="text-teal-600 font-semibold mt-2 bg-teal-50 inline-block px-3 py-1 rounded-full">{activeCardsData.summary.settlementText}</p>
+                                            <p className="text-gray-500 text-sm mb-1">{selectedMonth} Household Spend</p>
+                                            <h2 className="text-3xl font-bold text-gray-800">₹{activeCardsData.summary.total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</h2>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
-                                                <p className="text-blue-600 text-sm font-semibold mb-1">{user1Name}</p>
-                                                <p className="text-xl font-bold text-blue-900">₹{activeCardsData.summary.u1Total.toFixed(2)}</p>
+                                                <p className="text-blue-600 text-sm font-semibold mb-1">{user1Name}'s Share</p>
+                                                <p className="text-xl font-bold text-blue-900">₹{activeCardsData.summary.u1Total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
                                             </div>
                                             <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-center">
-                                                <p className="text-purple-600 text-sm font-semibold mb-1">{user2Name}</p>
-                                                <p className="text-xl font-bold text-purple-900">₹{activeCardsData.summary.u2Total.toFixed(2)}</p>
+                                                <p className="text-purple-600 text-sm font-semibold mb-1">{user2Name}'s Share</p>
+                                                <p className="text-xl font-bold text-purple-900">₹{activeCardsData.summary.u2Total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
                                             </div>
                                         </div>
 
@@ -446,16 +518,16 @@
                                                 <div key={c.cardName} className="bg-white border rounded-xl p-4 shadow-sm">
                                                     <div className="flex justify-between font-bold text-gray-800 border-b pb-2 mb-2">
                                                         <span>{c.cardName}</span>
-                                                        <span>₹{c.total.toFixed(2)}</span>
+                                                        <span>{c.total > 0 ? `₹${c.total.toLocaleString('en-IN')}` : '---'}</span>
                                                     </div>
                                                     <div className="flex justify-between text-sm text-gray-600 mb-2">
-                                                        <span>{user1Name}: ₹{c.u1Share.toFixed(2)}</span>
-                                                        <span>{user2Name}: ₹{c.u2Share.toFixed(2)}</span>
+                                                        <span>{user1Name}: ₹{c.u1Share.toLocaleString('en-IN')}</span>
+                                                        <span>{user2Name}: ₹{c.u2Share.toLocaleString('en-IN')}</span>
                                                     </div>
                                                     {c.overrides.map((ov, i) => (
                                                         <div key={i} className="text-xs text-gray-500 flex justify-between bg-gray-50 p-1.5 rounded mt-1 border">
                                                             <span>↳ {ov.desc} <span className="font-semibold">({ov.owner})</span></span>
-                                                            <span className="font-bold text-gray-700">₹{ov.amount.toFixed(2)}</span>
+                                                            <span className="font-bold text-gray-700">₹{ov.amount.toLocaleString('en-IN')}</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -473,7 +545,6 @@
                                     </>
                                 )}
 
-                                {/* Scenario B: Fresh load, viewing fetched historical data */}
                                 {!hasActiveData && !isLoadingInitial && fetchedData && (
                                     <>
                                         <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-2 rounded-lg text-center font-bold shadow-sm">
@@ -481,19 +552,18 @@
                                         </div>
                                         
                                         <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm text-center opacity-90 mt-4">
-                                            <p className="text-gray-500 text-sm mb-1">{fetchedData.month} Total</p>
-                                            <h2 className="text-3xl font-bold text-gray-800">₹{parseFloat(fetchedData.total).toFixed(2)}</h2>
-                                            <p className="text-teal-600 font-semibold mt-2 bg-teal-50 inline-block px-3 py-1 rounded-full">{fetchedData.settlement}</p>
+                                            <p className="text-gray-500 text-sm mb-1">{fetchedData.month} Household Spend</p>
+                                            <h2 className="text-3xl font-bold text-gray-800">₹{parseFloat(fetchedData.total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</h2>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4 opacity-90">
                                             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
-                                                <p className="text-blue-600 text-sm font-semibold mb-1">{user1Name}</p>
-                                                <p className="text-xl font-bold text-blue-900">₹{parseFloat(fetchedData.u1Total).toFixed(2)}</p>
+                                                <p className="text-blue-600 text-sm font-semibold mb-1">{user1Name}'s Share</p>
+                                                <p className="text-xl font-bold text-blue-900">₹{parseFloat(fetchedData.u1Total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
                                             </div>
                                             <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-center">
-                                                <p className="text-purple-600 text-sm font-semibold mb-1">{user2Name}</p>
-                                                <p className="text-xl font-bold text-purple-900">₹{parseFloat(fetchedData.u2Total).toFixed(2)}</p>
+                                                <p className="text-purple-600 text-sm font-semibold mb-1">{user2Name}'s Share</p>
+                                                <p className="text-xl font-bold text-purple-900">₹{parseFloat(fetchedData.u2Total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
                                             </div>
                                         </div>
 
@@ -506,7 +576,6 @@
                                     </>
                                 )}
 
-                                {/* Scenario C: Fresh load, but no data in sheet and no active data */}
                                 {!hasActiveData && !isLoadingInitial && !fetchedData && (
                                     <div className="text-center py-16 text-gray-400">
                                         <i className="fa-regular fa-folder-open text-5xl mb-4 opacity-50"></i>
@@ -520,7 +589,6 @@
                             </div>
                         )}
 
-                        {/* ================= SETTINGS VIEW ================= */}
                         {view === 'settings' && (
                             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-4">
                                 <h3 className="font-bold text-gray-700 border-b pb-2"><i className="fa-solid fa-gears mr-2"></i>Configuration</h3>
@@ -543,7 +611,6 @@
                         )}
                     </main>
 
-                    {/* Bottom Navigation */}
                     <nav className="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 pb-safe z-30 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
                         <button onClick={() => setView('entry')} className={`flex flex-col items-center flex-1 transition-colors ${view === 'entry' ? 'text-teal-700' : 'text-gray-400 hover:text-gray-600'}`}>
                             <i className="fa-solid fa-keyboard text-xl mb-1"></i>
