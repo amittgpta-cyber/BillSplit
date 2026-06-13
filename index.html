@@ -86,7 +86,7 @@
                 setView('dashboard');
             };
 
-            // THE SUPER PARSER
+ // THE SUPER PARSER (Refund & Cashback Secured)
             const handleFileUpload = async (e, targetCard) => {
                 const files = Array.from(e.target.files);
                 if (files.length === 0) return;
@@ -128,7 +128,7 @@
                     
                     // Look for HDFC 'Debit /Credit' column or separate Credit column
                     const crDrIdx = headers.findIndex(h => h.includes('debit /credit') || h.includes('cr/dr'));
-                    const crIdx = headers.findIndex(h => h === 'credit' || h.includes('deposit'));
+                    const crIdx = headers.findIndex(h => h === 'credit' || h.includes('deposit') || h === 'cr');
 
                     // 3. Extract Transactions
                     const parsedTxns = [];
@@ -141,19 +141,38 @@
                         const desc = String(row[descIdx] || 'Unknown Transaction').trim();
                         
                         // Extract Amount
-                        const amtString = String(row[amtIdx] || '0');
+                        const amtString = String(row[amtIdx] || '0').toUpperCase(); // Uppercase for easier 'CR' detection
                         const rawAmt = amtString.replace(/[^0-9.-]+/g, '');
                         let amt = parseFloat(rawAmt);
                         if (isNaN(amt)) amt = 0;
 
-                        // Credit Logic (Cashback, Payments, Refunds)
+                        // --- AGGRESSIVE CREDIT/REFUND DETECTION ---
                         let isCredit = false;
-                        if (crDrIdx >= 0 && String(row[crDrIdx]).toUpperCase().includes('CR')) isCredit = true;
-                        if (crIdx >= 0 && parseFloat(String(row[crIdx] || '0').replace(/[^0-9.-]+/g, '')) > 0) isCredit = true;
-                        if (amtString.toUpperCase().includes('CR')) isCredit = true;
+                        
+                        // Scenario A: HDFC separate "Cr/Dr" column (e.g., cell says "Cr" or "Cr.")
+                        if (crDrIdx >= 0 && String(row[crDrIdx]).toUpperCase().includes('CR')) {
+                            isCredit = true;
+                        }
+                        
+                        // Scenario B: Separate Credit column with a positive number in it
+                        if (crIdx >= 0 && parseFloat(String(row[crIdx] || '0').replace(/[^0-9.-]+/g, '')) > 0) {
+                            isCredit = true;
+                        }
+                        
+                        // Scenario C: Amount column has "Cr" appended to the number directly (e.g., "50.00 Cr")
+                        if (amtString.includes('CR')) {
+                            isCredit = true;
+                        }
+                        
+                        // Scenario D: Description implies payment or cashback (Optional safety net)
+                        const descLower = desc.toLowerCase();
+                        if (descLower.includes('payment') || descLower.includes('cashback') || descLower.includes('refund')) {
+                             // Uncomment the line below if you want to aggressively filter by description keywords too
+                             // isCredit = true; 
+                        }
 
-                        // Only add spend (>0, no CR tags, not a bill payment)
-                        if (amt > 0 && !isCredit && !desc.toLowerCase().includes('payment')) {
+                        // Only add spend (>0, NO credit tags, not a bill payment)
+                        if (amt > 0 && !isCredit && !descLower.includes('payment received')) {
                             parsedTxns.push({
                                 id: crypto.randomUUID(),
                                 date: date,
