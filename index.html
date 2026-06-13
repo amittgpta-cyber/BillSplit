@@ -8,7 +8,6 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -22,7 +21,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useCallback } = React;
 
-        // Added 'Refund/Cashback' to the categories
         const CATEGORIES = ['Food Delivery', 'Dining', 'Groceries', 'Utilities', 'Shopping', 'Travel', 'Subscriptions', 'Cook Salary', 'Cleaner Salary', 'Car Wash', 'Electricity Bill', 'Broadband Bill', 'Nanny Salary', 'Monthly Rent', 'Society Maintenance', 'Home Loan EMI', 'TDS on Loan', 'Refund/Cashback', 'Adhoc'];
         
         const CARDS = ['HDFC Regalia Gold', 'HDFC Swiggy', 'ICICI Sapphiro', 'ICICI Coral RuPay', 'SBI SimplyCLICK', 'Tata Neu Infinity', 'Bank of Baroda Eterna', 'Scapia', 'Amazon Pay ICICI', 'Axis Airtel', 'IndusInd EazyDiner', 'Amex Platinum Travel', 'Cash/UPI'];
@@ -87,80 +85,97 @@
                 setView('dashboard');
             };
 
+            // THE OMNI-PARSER
             const handleFileUpload = async (e, targetCard) => {
                 const files = Array.from(e.target.files);
                 if (files.length === 0) return;
 
                 let allParsedTxns = [];
 
-                const processData = (arrayOfArrays, fileName) => {
-                    let headerRowIndex = -1;
-                    let headers = [];
-
-                    for (let i = 0; i < Math.min(arrayOfArrays.length, 30); i++) {
-                        const row = arrayOfArrays[i];
-                        if (!row) continue;
-                        
-                        const rowString = row.map(cell => String(cell).toLowerCase()).join(' ');
-                        
-                        if ((rowString.includes('date') || rowString.includes('time')) && 
-                            (rowString.includes('amt') || rowString.includes('amount') || rowString.includes('debit') || rowString.includes('value'))) {
-                            headerRowIndex = i;
-                            headers = row.map(h => String(h).trim().toLowerCase());
-                            break;
-                        }
-                    }
-
-                    if (headerRowIndex === -1) {
-                        console.warn(`Could not find standard headers in ${fileName}`);
-                        return;
-                    }
-
-                    const dateIdx = headers.findIndex(h => h.includes('date') || h.includes('time'));
-                    const descIdx = headers.findIndex(h => h.includes('desc') || h.includes('narr') || h.includes('partic') || h.includes('detail') || h.includes('merchant'));
-                    
-                    let amtIdx = headers.findIndex(h => h === 'amt' || h === 'amount' || h === 'value' || h === 'inr');
-                    if (amtIdx === -1) amtIdx = headers.findIndex(h => h.includes('amount') || h.includes('amt'));
-                    if (amtIdx === -1) amtIdx = headers.findIndex(h => (h.includes('debit') || h.includes('withdraw')) && !h.includes('credit'));
-                    
-                    const crDrIdx = headers.findIndex(h => h.includes('debit /credit') || h.includes('cr/dr'));
-                    const crIdx = headers.findIndex(h => h === 'credit' || h.includes('deposit') || h === 'cr');
-
+                const processData = (textData, fileName) => {
                     const parsedTxns = [];
-                    for (let i = headerRowIndex + 1; i < arrayOfArrays.length; i++) {
-                        const row = arrayOfArrays[i];
-                        if (!row || row.length === 0 || !row[dateIdx]) continue;
+                    const lines = textData.split('\n');
+                    
+                    // Regex to find a date (e.g., 02/05/2026 or 02-05-2026)
+                    const dateRegex = /(\d{2}[\/\-]\d{2}[\/\-]\d{4})/;
 
-                        const date = String(row[dateIdx]).trim().split(' ')[0];
-                        const desc = String(row[descIdx] || 'Unknown Transaction').trim();
+                    lines.forEach(line => {
+                        // 1. Clean up HDFC's messy comma padding (e.g., changing ",,,," to just ",")
+                        // Also handles the weird ~|~ format
+                        let cleanLine = line.replace(/~\|~/g, ',');
+                        cleanLine = cleanLine.replace(/,+/g, ','); // Collapse multiple commas into one
+                        cleanLine = cleanLine.replace(/"/g, '');   // Remove quotes
                         
-                        const amtString = String(row[amtIdx] || '0').toUpperCase();
-                        const rawAmt = amtString.replace(/[^0-9.-]+/g, '');
-                        let amt = parseFloat(rawAmt);
-                        if (isNaN(amt)) amt = 0;
+                        const columns = cleanLine.split(',').map(c => c.trim()).filter(c => c !== '');
+                        
+                        if (columns.length < 3) return; // Not enough data to be a transaction row
 
-                        // IDENTIFY CREDITS (Cashbacks & Refunds)
+                        // 2. Look for the Date
+                        let dateStr = "";
+                        let dateIdx = -1;
+                        for (let i = 0; i < columns.length; i++) {
+                            const match = columns[i].match(dateRegex);
+                            if (match) {
+                                dateStr = match[1]; // Grab just the date part, ignore time
+                                dateIdx = i;
+                                break;
+                            }
+                        }
+
+                        // If no date is found, this is a header or junk row
+                        if (dateIdx === -1) return;
+
+                        // 3. Look for the Amount (Usually the last or second-to-last valid number)
+                        let amt = 0;
+                        let amtIdx = -1;
+                        
+                        // Search backwards for the amount
+                        for (let i = columns.length - 1; i > dateIdx; i--) {
+                            // Strip out valid currency characters
+                            const potentialAmtStr = columns[i].replace(/[^0-9.-]+/g, '');
+                            const potentialAmt = parseFloat(potentialAmtStr);
+                            
+                            // If it's a valid number and not a tiny number (like NeuCoins "+ 5")
+                            if (!isNaN(potentialAmt) && potentialAmtStr.length > 0) {
+                                // HDFC NeuCard puts NeuCoins right before the amount. Let's assume the highest number near the end is the amount
+                                if (potentialAmt > amt) {
+                                    amt = potentialAmt;
+                                    amtIdx = i;
+                                }
+                            }
+                        }
+                        
+                        if (amt === 0 || amtIdx === -1) return;
+
+                        // 4. Look for Credit/Payment flag ("Cr")
                         let isCredit = false;
-                        if (crDrIdx >= 0 && String(row[crDrIdx]).toUpperCase().includes('CR')) isCredit = true;
-                        if (crIdx >= 0 && parseFloat(String(row[crIdx] || '0').replace(/[^0-9.-]+/g, '')) > 0) isCredit = true;
-                        if (amtString.includes('CR')) isCredit = true;
+                        const lastCol = columns[columns.length - 1].toUpperCase();
+                        if (lastCol === 'CR' || lastCol.includes('CR')) {
+                            isCredit = true;
+                        }
 
+                        // 5. Grab the Description (Everything between the Date and the Amount)
+                        let descParts = [];
+                        for (let i = dateIdx + 1; i < amtIdx; i++) {
+                            // Filter out NeuCoin indicators like "+ 5" or "- 5"
+                            if (!columns[i].match(/^[\+\-]\s*\d+$/)) {
+                                descParts.push(columns[i]);
+                            }
+                        }
+                        const desc = descParts.join(' ').trim() || 'Unknown Transaction';
                         const descLower = desc.toLowerCase();
-                        
-                        // We STILL want to ignore actual bill payments, otherwise your total spend goes to zero.
+
+                        // 6. Final Filters
                         const isPayment = descLower.includes('payment') || descLower.includes('autopay') || descLower.includes('netbanking');
 
-                        // If there is an amount, and it is NOT a bill payment...
                         if (amt > 0 && !isPayment) {
-                            
-                            // Make Cashbacks negative so they subtract from the bill!
                             const finalAmt = isCredit ? -Math.abs(amt) : Math.abs(amt);
                             
                             parsedTxns.push({
                                 id: crypto.randomUUID(),
-                                date: date,
+                                date: dateStr.replace(/\-/g, '/'), // Standardize to DD/MM/YYYY
                                 description: desc,
-                                amount: finalAmt, // Can be positive (spend) or negative (refund)
+                                amount: finalAmt,
                                 category: isCredit ? 'Refund/Cashback' : 'Adhoc',
                                 card: targetCard,
                                 type: 'Credit Card',
@@ -168,48 +183,37 @@
                                 source: fileName
                             });
                         }
-                    }
+                    });
+
                     allParsedTxns = [...allParsedTxns, ...parsedTxns];
                 };
 
                 for (const file of files) {
                     const fileExtension = file.name.split('.').pop().toLowerCase();
 
-                    if (fileExtension === 'csv') {
-                        await new Promise((resolve) => {
+                    if (fileExtension === 'csv' || fileExtension === 'xls' || fileExtension === 'xlsx') {
+                         await new Promise((resolve) => {
                             const reader = new FileReader();
                             reader.onload = (evt) => {
+                                // Even if it's named .xls, if it's actually CSV under the hood, readAsText works perfectly
                                 const text = evt.target.result;
-                                if (text.includes('~|~')) {
-                                    const arrayOfArrays = text.split('\n').map(row => row.split('~|~').map(cell => cell.trim()));
-                                    processData(arrayOfArrays, file.name);
-                                    resolve();
+                                
+                                // Fallback: If it's a TRUE binary Excel file, text will look like garbage (starts with PK or ÐÏ)
+                                if (text.startsWith('PK') || text.charCodeAt(0) === 208) {
+                                    const wb = XLSX.read(text, { type: 'binary' });
+                                    const wsname = wb.SheetNames[0];
+                                    const ws = wb.Sheets[wsname];
+                                    // Convert binary Excel back to a flat CSV string for our Omni-Parser
+                                    const csvString = XLSX.utils.sheet_to_csv(ws);
+                                    processData(csvString, file.name);
                                 } else {
-                                    Papa.parse(text, {
-                                        header: false,
-                                        skipEmptyLines: true,
-                                        complete: (results) => {
-                                            processData(results.data, file.name);
-                                            resolve();
-                                        }
-                                    });
+                                    // It's a text file (CSV or HDFC's fake XLS)
+                                    processData(text, file.name);
                                 }
-                            };
-                            reader.readAsText(file);
-                        });
-                    } else if (fileExtension === 'xls' || fileExtension === 'xlsx') {
-                        await new Promise((resolve) => {
-                            const reader = new FileReader();
-                            reader.onload = (evt) => {
-                                const bstr = evt.target.result;
-                                const wb = XLSX.read(bstr, { type: 'binary' });
-                                const wsname = wb.SheetNames[0];
-                                const ws = wb.Sheets[wsname];
-                                const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-                                processData(data, file.name);
                                 resolve();
                             };
-                            reader.readAsBinaryString(file);
+                            // Read everything as text first to handle HDFC's fake XLS files
+                            reader.readAsBinaryString(file); 
                         });
                     }
                 }
@@ -309,7 +313,7 @@
                 let cardSummary = {};
 
                 transactions.forEach(t => {
-                    total += t.amount; // Negative amounts subtract automatically
+                    total += t.amount; 
                     
                     if (!cardSummary[t.card]) {
                         cardSummary[t.card] = { total: 0, u1: 0, u2: 0 };
