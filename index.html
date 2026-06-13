@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BillSplit Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        const CATEGORIES = ['Food Delivery', 'Dining', 'Groceries', 'Utilities', 'Shopping', 'Travel', 'Subscriptions', 'Maid/Cook Salary', 'Rent/Maintenance', 'Loan EMI', 'Adhoc'];
+        const CARDS = ['Standard Card 1', 'Standard Card 2', 'Premium Card 1', 'Cash/UPI'];
+
+        const App = () => {
+            const [view, setView] = useState('dashboard');
+            const [transactions, setTransactions] = useState([]);
+            const [isSyncing, setIsSyncing] = useState(false);
+
+            // Settings State (Stored locally in user browser context)
+            const [scriptUrl, setScriptUrl] = useState(() => localStorage.getItem('bs_script_url') || '');
+            const [user1Name, setUser1Name] = useState(() => localStorage.getItem('bs_user1_name') || 'Primary');
+            const [user2Name, setUser2Name] = useState(() => localStorage.getItem('bs_user2_name') || 'Partner');
+
+            // Form Entry State
+            const [manualEntry, setManualEntry] = useState({
+                date: new Date().toISOString().split('T')[0],
+                description: '',
+                amount: '',
+                category: CATEGORIES[0],
+                card: CARDS[0]
+            });
+
+            // Dynamic Rules matching generalized settings profiles
+            const rules = useMemo(() => {
+                return {
+                    cards: {},
+                    categories: {
+                        'Subscriptions': user1Name,
+                        'Utilities': user1Name
+                    }
+                };
+            }, [user1Name]);
+
+            const determineOwner = (card, category) => {
+                if (rules.cards[card]) return rules.cards[card];
+                if (rules.categories[category]) return rules.categories[category];
+                return 'Split';
+            };
+
+            const saveSettings = (url, u1, u2) => {
+                localStorage.setItem('bs_script_url', url);
+                localStorage.setItem('bs_user1_name', u1);
+                localStorage.setItem('bs_user2_name', u2);
+                setScriptUrl(url);
+                setUser1Name(u1);
+                setUser2Name(u2);
+                alert('Settings saved locally.');
+                setView('dashboard');
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        const parsedTxns = results.data.map(row => {
+                            const date = row['Date'] || row['Transaction Date'] || new Date().toISOString().split('T')[0];
+                            const desc = row['Description'] || row['Narration'] || row['Details'] || 'Transaction Line Item';
+                            const amt = parseFloat(row['Amount'] || row['Debit'] || row['Value'] || 0);
+                            
+                            if (amt > 0) {
+                                return {
+                                    id: crypto.randomUUID(),
+                                    date: date,
+                                    description: desc,
+                                    amount: amt,
+                                    category: 'Adhoc',
+                                    card: CARDS[0],
+                                    type: 'Credit Card',
+                                    owner: 'Split',
+                                    source: file.name
+                                };
+                            }
+                            return null;
+                        }).filter(t => t !== null);
+
+                        setTransactions([...transactions, ...parsedTxns]);
+                        setView('transactions');
+                    }
+                });
+            };
+
+            const addManualEntry = (e) => {
+                e.preventDefault();
+                if (!manualEntry.amount || !manualEntry.description) return;
+                
+                const owner = determineOwner(manualEntry.card, manualEntry.category);
+                
+                const newTxn = {
+                    id: crypto.randomUUID(),
+                    date: manualEntry.date,
+                    description: manualEntry.description,
+                    amount: parseFloat(manualEntry.amount),
+                    category: manualEntry.category,
+                    card: manualEntry.card,
+                    type: manualEntry.card === 'Cash/UPI' ? 'Adhoc' : 'Credit Card',
+                    owner: owner,
+                    source: 'Manual'
+                };
+
+                setTransactions([newTxn, ...transactions]);
+                setManualEntry({ ...manualEntry, description: '', amount: '' });
+                setView('transactions');
+            };
+
+            const updateTransaction = (id, field, value) => {
+                setTransactions(transactions.map(t => {
+                    if (t.id === id) {
+                        const updated = { ...t, [field]: value };
+                        if (field === 'category' || field === 'card') {
+                            updated.owner = determineOwner(updated.card, updated.category);
+                        }
+                        return updated;
+                    }
+                    return t;
+                }));
+            };
+
+            const removeTransaction = (id) => {
+                setTransactions(transactions.filter(t => t.id !== id));
+            };
+
+            const syncToSheets = async () => {
+                if (!scriptUrl) return alert('Please set your Google Apps Script URL in Settings first.');
+                if (transactions.length === 0) return alert('No transactions to sync');
+                setIsSyncing(true);
+                
+                const payload = {
+                    action: 'appendTransactions',
+                    transactions: transactions.map(t => ({
+                        recordId: t.id,
+                        date: t.date,
+                        month: t.date.substring(0, 7),
+                        cardName: t.card,
+                        description: t.description,
+                        amount: t.amount,
+                        category: t.category,
+                        transactionType: t.type,
+                        autoAssignedOwner: t.owner,
+                        finalOwner: t.owner,
+                        sourceFile: t.source,
+                        statementMonth: t.date.substring(0, 7)
+                    }))
+                };
+
+                try {
+                    await fetch(scriptUrl, {
+                        method: 'POST',
+                        body: JSON.stringify(payload),
+                        mode: 'no-cors'
+                    });
+                    alert('Successfully synced to Google Sheets!');
+                    setTransactions([]); 
+                    setView('dashboard');
+                } catch (error) {
+                    alert('Error writing parameters to Sheet.');
+                    console.error(error);
+                } finally {
+                    setIsSyncing(false);
+                }
+            };
+
+            const stats = useMemo(() => {
+                let total = 0, u1Total = 0, u2Total = 0;
+                
+                transactions.forEach(t => {
+                    total += t.amount;
+                    if (t.owner === user1Name) u1Total += t.amount;
+                    else if (t.owner === user2Name) u2Total += t.amount;
+                    else {
+                        u1Total += t.amount / 2;
+                        u2Total += t.amount / 2;
+                    }
+                });
+
+                let settlementText = 'Balanced Status';
+                if (u1Total > u2Total) settlementText = `${user2Name} owes ${user1Name} ₹${(u1Total - u2Total).toFixed(2)}`;
+                if (u2Total > u1Total) settlementText = `${user1Name} owes ${user2Name} ₹${(u2Total - u1Total).toFixed(2)}`;
+
+                return { total, u1Total, u2Total, settlementText };
+            }, [transactions, user1Name, user2Name]);
+
+            const shareWhatsApp = () => {
+                const text = `*BillSplit Pro Summary*\n\n` +
+                             `*Total Month Spend:* ₹${stats.total.toFixed(2)}\n` +
+                             `*${user1Name}'s Share:* ₹${stats.u1Total.toFixed(2)}\n` +
+                             `*${user2Name}'s Share:* ₹${stats.u2Total.toFixed(2)}\n\n` +
+                             `*Allocation:* ${stats.settlementText}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+            };
+
+            return (
+                <div className="max-w-md mx-auto bg-white min-h-screen shadow-lg pb-20 relative">
+                    <header className="bg-teal-700 text-white p-4 sticky top-0 z-10 shadow-md flex justify-between items-center">
+                        <h1 className="text-xl font-bold"><i className="fa-solid fa-file-invoice-dollar mr-2"></i>BillSplit Pro</h1>
+                        <div className="flex gap-2">
+                            <button onClick={() => setView('settings')} className="text-white hover:text-teal-200 p-1">
+                                <i className="fa-solid fa-gear text-lg"></i>
+                            </button>
+                            {transactions.length > 0 && (
+                                <button onClick={syncToSheets} disabled={isSyncing} className="bg-teal-600 px-3 py-1 rounded text-sm hover:bg-teal-500">
+                                    {isSyncing ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>} Sync
+                                </button>
+                            )}
+                        </div>
+                    </header>
+
+                    {!scriptUrl && view !== 'settings' && (
+                        <div className="bg-amber-50 border-b border-amber-200 p-3 text-sm text-amber-800 flex items-center justify-between">
+                            <span>Backend API endpoint not configured.</span>
+                            <button onClick={() => setView('settings')} className="underline font-semibold">Configure Now</button>
+                        </div>
+                    )}
+
+                    <main className="p-4">
+                        {/* DASHBOARD VIEW */}
+                        {view === 'dashboard' && (
+                            <div className="space-y-6">
+                                <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm text-center">
+                                    <p className="text-gray-500 text-sm mb-1">Unsynced Statement Pool</p>
+                                    <h2 className="text-3xl font-bold text-gray-800">₹{stats.total.toFixed(2)}</h2>
+                                    <p className="text-teal-600 font-semibold mt-2 bg-teal-50 inline-block px-3 py-1 rounded-full">{stats.settlementText}</p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
+                                        <p className="text-blue-600 text-sm font-semibold mb-1">{user1Name}'s Account</p>
+                                        <p className="text-xl font-bold text-blue-900">₹{stats.u1Total.toFixed(2)}</p>
+                                    </div>
+                                    <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-center">
+                                        <p className="text-purple-600 text-sm font-semibold mb-1">{user2Name}'s Account</p>
+                                        <p className="text-xl font-bold text-purple-900">₹{stats.u2Total.toFixed(2)}</p>
+                                    </div>
+                                </div>
+
+                                <button onClick={shareWhatsApp} className="w-full bg-green-500 text-white p-3 rounded-lg font-semibold flex justify-center items-center gap-2 hover:bg-green-600 shadow-md">
+                                    <i className="fa-brands fa-whatsapp text-xl"></i> Export via WhatsApp
+                                </button>
+                            </div>
+                        )}
+
+                        {/* ADD / IMPORT VIEW */}
+                        {view === 'add' && (
+                            <div className="space-y-6">
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                    <h3 className="font-bold text-gray-700 mb-4 border-b pb-2"><i className="fa-solid fa-file-csv mr-2"></i>Statement Matrix Upload</h3>
+                                    <input type="file" accept=".csv" onChange={handleFileUpload} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100" />
+                                </div>
+
+                                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                    <h3 className="font-bold text-gray-700 mb-4 border-b pb-2"><i className="fa-solid fa-pen-to-square mr-2"></i>Manual Asset Log</h3>
+                                    <form onSubmit={addManualEntry} className="space-y-3">
+                                        <input type="date" value={manualEntry.date} onChange={e => setManualEntry({...manualEntry, date: e.target.value})} className="w-full border p-2 rounded focus:outline-none focus:border-teal-500" required />
+                                        <input type="text" placeholder="Description Details" value={manualEntry.description} onChange={e => setManualEntry({...manualEntry, description: e.target.value})} className="w-full border p-2 rounded focus:outline-none focus:border-teal-500" required />
+                                        <input type="number" placeholder="Value Amount (₹)" value={manualEntry.amount} onChange={e => setManualEntry({...manualEntry, amount: e.target.value})} className="w-full border p-2 rounded focus:outline-none focus:border-teal-500" required />
+                                        
+                                        <select value={manualEntry.category} onChange={e => setManualEntry({...manualEntry, category: e.target.value})} className="w-full border p-2 rounded bg-white">
+                                            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                        
+                                        <select value={manualEntry.card} onChange={e => setManualEntry({...manualEntry, card: e.target.value})} className="w-full border p-2 rounded bg-white">
+                                            {CARDS.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                        
+                                        <button type="submit" className="w-full bg-teal-700 text-white p-2 rounded font-semibold hover:bg-teal-800">Add Entry</button>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* LIST VIEW */}
+                        {view === 'transactions' && (
+                            <div className="space-y-4">
+                                {transactions.length === 0 ? (
+                                    <p className="text-center text-gray-500 mt-10">No items available in the parsing workspace.</p>
+                                ) : (
+                                    transactions.sort((a, b) => b.amount - a.amount).map(txn => (
+                                        <div key={txn.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative">
+                                            <button onClick={() => removeTransaction(txn.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600"><i className="fa-solid fa-xmark"></i></button>
+                                            
+                                            <div className="flex justify-between items-start mb-2 pr-4">
+                                                <div>
+                                                    <p className="font-bold text-gray-800">{txn.description}</p>
+                                                    <p className="text-xs text-gray-500">{txn.date} • {txn.source === 'Manual' ? 'Manual' : 'Imported'}</p>
+                                                </div>
+                                                <p className="font-bold text-lg text-teal-700">₹{txn.amount}</p>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 gap-2 mt-3">
+                                                <select value={txn.category} onChange={(e) => updateTransaction(txn.id, 'category', e.target.value)} className="text-xs border p-1 rounded bg-gray-50 text-gray-700">
+                                                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                                </select>
+
+                                                <select value={txn.card} onChange={(e) => updateTransaction(txn.id, 'card', e.target.value)} className="text-xs border p-1 rounded bg-gray-50 text-gray-700">
+                                                    {CARDS.map(c => <option key={c} value={c}>{c}</option>)}
+                                                </select>
+
+                                                <select value={txn.owner} onChange={(e) => updateTransaction(txn.id, 'owner', e.target.value)} className={`text-xs border p-1 rounded font-semibold ${txn.owner === user1Name ? 'bg-blue-100 text-blue-800' : txn.owner === user2Name ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}`}>
+                                                    <option value="Split">Split 50/50</option>
+                                                    <option value={user1Name}>100% {user1Name}</option>
+                                                    <option value={user2Name}>100% {user2Name}</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+
+                        {/* SETTINGS VIEW */}
+                        {view === 'settings' && (
+                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-4">
+                                <h3 className="font-bold text-gray-700 border-b pb-2"><i className="fa-solid fa-sliders mr-2"></i>Local Storage Options</h3>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-500 mb-1">Apps Script Exec URL</label>
+                                        <input type="text" id="setting_url" defaultValue={scriptUrl} placeholder="https://script.google.com/.../exec" className="w-full border p-2 rounded text-sm focus:outline-none focus:border-teal-500" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-500 mb-1">User Profile 1 Name</label>
+                                        <input type="text" id="setting_u1" defaultValue={user1Name} placeholder="Primary Person" className="w-full border p-2 rounded text-sm focus:outline-none focus:border-teal-500" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-500 mb-1">User Profile 2 Name</label>
+                                        <input type="text" id="setting_u2" defaultValue={user2Name} placeholder="Secondary Partner" className="w-full border p-2 rounded text-sm focus:outline-none focus:border-teal-500" />
+                                    </div>
+                                    <button onClick={() => saveSettings(
+                                        document.getElementById('setting_url').value,
+                                        document.getElementById('setting_u1').value,
+                                        document.getElementById('setting_u2').value
+                                    )} className="w-full bg-teal-700 text-white p-2 rounded font-semibold text-sm hover:bg-teal-800">
+                                        Update Local Configurations
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Bottom Navigation */}
+                    <nav className="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 pb-safe z-20">
+                        <button onClick={() => setView('dashboard')} className={`flex flex-col items-center flex-1 ${view === 'dashboard' ? 'text-teal-700' : 'text-gray-400'}`}>
+                            <i className="fa-solid fa-chart-pie text-xl mb-1"></i>
+                            <span className="text-[10px] font-semibold">Dashboard</span>
+                        </button>
+                        <button onClick={() => setView('add')} className={`flex flex-col items-center flex-1 ${view === 'add' ? 'text-teal-700' : 'text-gray-400'}`}>
+                            <div className="bg-teal-700 text-white rounded-full w-10 h-10 flex items-center justify-center -mt-5 border-4 border-white shadow-sm">
+                                <i className="fa-solid fa-plus text-lg"></i>
+                            </div>
+                            <span className="text-[10px] font-semibold mt-1">Workspace</span>
+                        </button>
+                        <button onClick={() => setView('transactions')} className={`flex flex-col items-center flex-1 relative ${view === 'transactions' ? 'text-teal-700' : 'text-gray-400'}`}>
+                            {transactions.length > 0 && <span className="absolute top-0 right-4 bg-red-500 text-white text-[8px] rounded-full w-4 h-4 flex items-center justify-center font-bold">{transactions.length}</span>}
+                            <i className="fa-solid fa-list-ul text-xl mb-1"></i>
+                            <span className="text-[10px] font-semibold">Verification</span>
+                        </button>
+                    </nav>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
