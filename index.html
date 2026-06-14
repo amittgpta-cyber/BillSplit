@@ -128,26 +128,31 @@
                 setIsLoadingInitial(true);
                 try {
                     const cacheBuster = new Date().getTime();
-                    const response = await fetch(`${scriptUrl.trim()}?action=getAllData&t=${cacheBuster}`, { method: 'GET' });
+                    const response = await fetch(`${scriptUrl.trim()}?action=getAllData&t=${cacheBuster}`, { 
+                        method: 'GET',
+                        redirect: 'follow'
+                    });
                     
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    
-                    const result = await response.json();
+                    const text = await response.text();
+                    let result;
+                    try {
+                        result = JSON.parse(text);
+                    } catch (e) {
+                        throw new Error("Received HTML instead of JSON. Multiple Google accounts may be signed in, blocking the fetch. Try from an Incognito window or verify deployment is strictly set to 'Anyone'.");
+                    }
                     
                     if (result.ok && result.data) {
                         setFetchedSummary(result.data.summary || []);
                         setFetchedCards(result.data.cards || []);
                         if (result.data.myCards && result.data.myCards.length > 0) {
                             setCardList(result.data.myCards);
-                        } else {
-                            alert("Data fetched, but MY_CARDS tab appears empty or misconfigured.");
                         }
                     } else if (!result.ok && result.error) {
                         alert("Backend Error: " + result.error);
                     }
                 } catch (error) {
                     console.error("Fetch Error:", error);
-                    alert("Connection failed. Check Web App URL, ensure deployment is 'New Version', and access is 'Anyone'. Error: " + error.message);
+                    alert("Connection failed: " + error.message);
                 } finally {
                     setIsLoadingInitial(false);
                 }
@@ -157,16 +162,20 @@
                 if (!newCardName.trim() || !scriptUrl) return;
                 setIsAddingCard(true);
                 try {
-                    await fetch(scriptUrl.trim(), {
+                    const response = await fetch(scriptUrl.trim(), {
                         method: 'POST',
                         body: JSON.stringify({ action: 'addCard', cardName: newCardName.trim() }),
-                        mode: 'no-cors'
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        redirect: 'follow'
                     });
-                    setNewCardName('');
-                    setCardList(prev => [...prev, newCardName.trim()]);
-                    alert('Card added successfully!');
+                    const result = await response.json();
+                    if (result.ok) {
+                        setNewCardName('');
+                        setCardList(prev => [...prev, newCardName.trim()]);
+                        alert('Card added successfully!');
+                    }
                 } catch (e) {
-                    alert('Failed to add card.');
+                    alert('Failed to add card. Check URL and permissions.');
                 } finally {
                     setIsAddingCard(false);
                 }
@@ -340,17 +349,25 @@
                 const payload = { action: 'syncMonth', month: selectedMonth, summary: activeCardsData.summary, cards: activeCardsData.cards };
 
                 try {
-                    await fetch(scriptUrl.trim(), { method: 'POST', body: JSON.stringify(payload), mode: 'no-cors' });
-                    alert(`Successfully synced ${selectedMonth} to Sheets!`);
+                    const response = await fetch(scriptUrl.trim(), { 
+                        method: 'POST', 
+                        body: JSON.stringify(payload),
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        redirect: 'follow'
+                    });
+                    const result = await response.json();
                     
-                    const reset = {};
-                    sortedCardList.forEach(c => reset[c] = { total: '', overrides: [] });
-                    setFormData(reset);
-                    setOfflineSpends(initOfflineSpends());
-                    setLoans([]);
-                    fetchAllData();
+                    if (result.ok) {
+                        alert(`Successfully synced ${selectedMonth} to Sheets!`);
+                        const reset = {};
+                        sortedCardList.forEach(c => reset[c] = { total: '', overrides: [] });
+                        setFormData(reset);
+                        setOfflineSpends(initOfflineSpends());
+                        setLoans([]);
+                        fetchAllData();
+                    }
                 } catch (error) {
-                    alert('Error syncing to Sheet.');
+                    alert('Error syncing to Sheet. Check permissions.');
                 } finally {
                     setIsSyncing(false);
                 }
