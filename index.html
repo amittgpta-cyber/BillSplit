@@ -497,32 +497,40 @@
             const handleShare = (type, customData = null) => {
                 let text = '';
                 
+                // Bulletproof Unicode emojis to prevent file encoding corruption
+                const e = {
+                    chart: '\uD83D\uDCCA', cal: '\uD83D\uDCC5', money: '\uD83D\uDCB0', down: '\uD83D\uDCC9', 
+                    u1: '\uD83D\uDD35', u2: '\uD83D\uDFE3', sparkle: '\u2728', card: '\uD83D\uDCB3', 
+                    dot: '\uD83D\uDD39', pin: '\uD83D\uDCCC', home: '\uD83C\uDFE0', sync: '\uD83D\uDD04', 
+                    smalldot: '\u25AB\uFE0F', line: '━━━━━━━━━━━━━━━━━━━━━'
+                };
+
                 const buildInsightsText = () => {
-                    if (chartData.length === 0) return `📊 *BILLSPLIT INSIGHTS*\nNo data available.\n\n`;
+                    if (chartData.length === 0) return `${e.chart} *BILLSPLIT INSIGHTS*\nNo data available.\n\n`;
                     const totalTracked = pieData.reduce((acc, curr) => acc + curr.value, 0);
                     const avgSpend = totalTracked / chartData.length;
                     
-                    let insights = `📈 *BILLSPLIT INSIGHTS*\n`;
+                    let insights = `${e.chart} *BILLSPLIT INSIGHTS*\n`;
                     insights += `⏳ _${timeframe.toUpperCase()}_\n`;
-                    insights += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
-                    insights += `📅 *Months Tracked:* ${chartData.length}\n\n`;
-                    insights += `💰 *Household Spend:* ${formatMoney(totalTracked)}\n`;
-                    insights += `📉 *Monthly Average:* ${formatMoney(avgSpend)}\n\n`;
-                    insights += `🔵 *${user1Name}'s Share:* ${formatMoney(pieData[0].value)}\n`;
-                    insights += `🟣 *${user2Name}'s Share:* ${formatMoney(pieData[1].value)}\n\n`;
-                    insights += `━━━━━━━━━━━━━━━━━━━━━\n`;
-                    insights += `✨ _Generated via BillSplit Pro_`;
+                    insights += `${e.line}\n\n`;
+                    insights += `${e.cal} *Months Tracked:* ${chartData.length}\n\n`;
+                    insights += `${e.money} *Household Spend:* ${formatMoney(totalTracked)}\n`;
+                    insights += `${e.down} *Monthly Average:* ${formatMoney(avgSpend)}\n\n`;
+                    insights += `${e.u1} *${user1Name}'s Share:* ${formatMoney(pieData[0].value)}\n`;
+                    insights += `${e.u2} *${user2Name}'s Share:* ${formatMoney(pieData[1].value)}\n\n`;
+                    insights += `${e.line}\n`;
+                    insights += `${e.sparkle} _Generated via BillSplit_`;
                     return insights;
                 };
 
                 const buildMonthText = (dataObj, label = "LAST MONTH") => {
-                    if (!dataObj) return `📊 *${label} SUMMARY*\nNo data available.\n\n`;
-                    let mText = `📊 *${label.toUpperCase()} SUMMARY*\n`;
-                    mText += `🗓️ *MONTH:* ${dataObj.month.toUpperCase()}\n`;
-                    mText += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
-                    mText += `💰 *Total Household Spend:* ${formatMoney(dataObj.total)}\n\n`;
-                    mText += `🔵 *${user1Name}'s Share:* ${formatMoney(dataObj.u1Total)}\n`;
-                    mText += `🟣 *${user2Name}'s Share:* ${formatMoney(dataObj.u2Total)}\n\n`;
+                    if (!dataObj) return `${e.chart} *${label} SUMMARY*\nNo data available.\n\n`;
+                    let mText = `${e.chart} *${label.toUpperCase()} SUMMARY*\n`;
+                    mText += `${e.cal} *MONTH:* ${dataObj.month.toUpperCase()}\n`;
+                    mText += `${e.line}\n\n`;
+                    mText += `${e.money} *Total Household Spend:* ${formatMoney(dataObj.total)}\n\n`;
+                    mText += `${e.u1} *${user1Name}'s Share:* ${formatMoney(dataObj.u1Total)}\n`;
+                    mText += `${e.u2} *${user2Name}'s Share:* ${formatMoney(dataObj.u2Total)}\n\n`;
 
                     if (dataObj.cards.length > 0) {
                         const ccData = dataObj.cards.filter(c => c[1] !== 'Offline & Fixed Spends' && c[1] !== 'Inter-Personal Adjustments');
@@ -530,36 +538,36 @@
                         const loanData = dataObj.cards.find(c => c[1] === 'Inter-Personal Adjustments');
 
                         if (ccData.length > 0) {
-                            mText += `━━━━━━━━━━━━━━━━━━━━━\n`;
-                            mText += `💳 *CREDIT CARDS*\n\n`;
+                            mText += `${e.line}\n`;
+                            mText += `${e.card} *CREDIT CARDS*\n\n`;
                             ccData.forEach(c => {
-                                mText += `🔹 *${c[1]}* \n     ${formatMoney(c[2])}\n`;
+                                mText += `${e.dot} *${c[1]}* \n     ${formatMoney(c[2])}\n`;
                                 mText += `     ↳ ${user1Name}: ${formatMoney(c[3])} | ${user2Name}: ${formatMoney(c[4])}\n`;
                                 if (c[5] && c[5] !== 'None') {
-                                    c[5].split(' | ').forEach(ov => { mText += `     📌 _${formatOverrideString(ov)}_\n`; });
+                                    c[5].split(' | ').forEach(ov => { mText += `     ${e.pin} _${formatOverrideString(ov)}_\n`; });
                                 }
                                 mText += `\n`;
                             });
                         }
 
                         if (offlineData && offlineData[5] !== 'None') {
-                            mText += `━━━━━━━━━━━━━━━━━━━━━\n`;
-                            mText += `🏠 *FIXED & OFFLINE SPENDS*\n\n`;
-                            mText += `🔹 *Total Expenses* \n     ${formatMoney(offlineData[2])}\n`;
+                            mText += `${e.line}\n`;
+                            mText += `${e.home} *FIXED & OFFLINE SPENDS*\n\n`;
+                            mText += `${e.dot} *Total Expenses* \n     ${formatMoney(offlineData[2])}\n`;
                             mText += `     ↳ ${user1Name}: ${formatMoney(offlineData[3])} | ${user2Name}: ${formatMoney(offlineData[4])}\n`;
-                            offlineData[5].split(' | ').forEach(ov => { mText += `     ▫️ _${formatOverrideString(ov)}_\n`; });
+                            offlineData[5].split(' | ').forEach(ov => { mText += `     ${e.smalldot} _${formatOverrideString(ov)}_\n`; });
                             mText += `\n`;
                         }
 
                         if (loanData && loanData[5] !== 'None') {
-                            mText += `━━━━━━━━━━━━━━━━━━━━━\n`;
-                            mText += `🔄 *INTER-PERSONAL ADJUSTMENTS*\n\n`;
-                            loanData[5].split(' | ').forEach(ov => { mText += `     ▫️ _${formatOverrideString(ov)}_\n`; });
+                            mText += `${e.line}\n`;
+                            mText += `${e.sync} *INTER-PERSONAL ADJUSTMENTS*\n\n`;
+                            loanData[5].split(' | ').forEach(ov => { mText += `     ${e.smalldot} _${formatOverrideString(ov)}_\n`; });
                             mText += `\n`;
                         }
                     }
-                    mText += `━━━━━━━━━━━━━━━━━━━━━\n`;
-                    mText += `✨ _Generated via BillSplit Pro_`;
+                    mText += `${e.line}\n`;
+                    mText += `${e.sparkle} _Generated via BillSplit_`;
                     return mText;
                 };
 
