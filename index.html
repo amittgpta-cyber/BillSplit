@@ -426,10 +426,15 @@
 
             const historyMonthData = useMemo(() => {
                 if (!historyMonth || !fetchedSummary || fetchedSummary.length === 0) return null;
+                
+                // 1. Find the summary row for the currently selected historyMonth
                 const sumRow = fetchedSummary.find(r => r[0] === historyMonth);
                 if (!sumRow) return null;
+                
+                // 2. Filter the detailed cards to ONLY show data for the selected month
                 let cardsForMonth = fetchedCards.filter(c => c[0] === historyMonth);
                 
+                // 3. Apply search query if active
                 if (searchQuery.trim()) {
                     const lowerQ = searchQuery.toLowerCase();
                     cardsForMonth = cardsForMonth.filter(c => 
@@ -438,7 +443,13 @@
                     );
                 }
 
-                return { month: formatMonthName(sumRow[0]), total: sumRow[1], u1Total: sumRow[2], u2Total: sumRow[3], cards: cardsForMonth };
+                return { 
+                    month: formatMonthName(sumRow[0]), 
+                    total: sumRow[1], 
+                    u1Total: sumRow[2], 
+                    u2Total: sumRow[3], 
+                    cards: cardsForMonth 
+                };
             }, [historyMonth, fetchedSummary, fetchedCards, searchQuery]);
 
             const handleShare = (type, customData = null) => {
