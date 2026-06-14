@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
@@ -19,6 +20,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
+        const { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = window.Recharts;
 
         const CARDS = ['HDFC Regalia Gold', 'HDFC Swiggy', 'ICICI Sapphiro', 'ICICI Coral RuPay', 'SBI SimplyCLICK', 'Tata Neu Infinity', 'Bank of Baroda Eterna', 'Scapia', 'Amazon Pay ICICI', 'Axis Airtel', 'IndusInd EazyDiner', 'Amex Platinum Travel', 'Cash/UPI'];
         
@@ -27,12 +29,14 @@
         ];
 
         const App = () => {
-            const [view, setView] = useState('summary'); 
+            const [view, setView] = useState('dashboard'); 
             const [isSyncing, setIsSyncing] = useState(false);
             const [isLoadingInitial, setIsLoadingInitial] = useState(false);
-            const [fetchedData, setFetchedData] = useState(null);
+            const [fetchedSummary, setFetchedSummary] = useState([]);
+            const [fetchedCards, setFetchedCards] = useState([]);
+            const [shareModalOpen, setShareModalOpen] = useState(false);
 
-            const [scriptUrl, setScriptUrl] = useState(() => localStorage.getItem('bs_script_url') || 'https://script.google.com/macros/s/AKfycbzs7WDstoNCXawgqM6LRdJLe9It3pRtYEplmwIlHARpZEVQRoGSFf_stJ5dJ1IOr_g3/exec');
+            const [scriptUrl, setScriptUrl] = useState(() => localStorage.getItem('bs_script_url') || 'YOUR_GOOGLE_SCRIPT_URL_HERE');
             const [user1Name, setUser1Name] = useState(() => localStorage.getItem('bs_user1_name') || 'Amit');
             const [user2Name, setUser2Name] = useState(() => localStorage.getItem('bs_user2_name') || 'Alka');
             
@@ -49,43 +53,33 @@
             });
 
             const initOfflineSpends = () => DEFAULT_OFFLINE_SPENDS.map(desc => ({
-                id: crypto.randomUUID(),
-                desc: desc,
-                amount: '',
-                owner: 'Auto', 
-                isCustom: false
+                id: crypto.randomUUID(), desc: desc, amount: '', owner: 'Auto', isCustom: false
             }));
             const [offlineSpends, setOfflineSpends] = useState(initOfflineSpends());
-
             const [loans, setLoans] = useState([]);
 
             const rules = useMemo(() => ({
-                cards: {
-                    'HDFC Swiggy': user2Name,
-                    'Axis Airtel': user1Name
-                },
+                cards: { 'HDFC Swiggy': user2Name, 'Axis Airtel': user1Name },
                 categories: {
-                    'Cook Salary': user1Name,
-                    'Cleaning Maid Salary': user1Name,
-                    'Car Wash': user1Name,
-                    'Electricity Bill': user1Name,
-                    'Broadband Bill': user1Name,
-                    'Monthly Rent': 'Split',
-                    'Society Maintenance': 'Split',
-                    'Home Loan EMI': 'Split'
+                    'Cook Salary': user1Name, 'Cleaning Maid Salary': user1Name, 'Car Wash': user1Name,
+                    'Electricity Bill': user1Name, 'Broadband Bill': user1Name, 'Monthly Rent': 'Split',
+                    'Society Maintenance': 'Split', 'Home Loan EMI': 'Split'
                 }
             }), [user1Name, user2Name]);
 
             useEffect(() => {
-                if (scriptUrl) fetchLastMonth();
+                if (scriptUrl && scriptUrl !== 'YOUR_GOOGLE_SCRIPT_URL_HERE') fetchAllData();
             }, [scriptUrl]);
 
-            const fetchLastMonth = async () => {
+            const fetchAllData = async () => {
                 setIsLoadingInitial(true);
                 try {
-                    const response = await fetch(`${scriptUrl}?action=getLastMonth`, { method: 'GET' });
+                    const response = await fetch(`${scriptUrl}?action=getAllData`, { method: 'GET' });
                     const result = await response.json();
-                    if (result.ok && result.data) setFetchedData(result.data);
+                    if (result.ok && result.data) {
+                        setFetchedSummary(result.data.summary || []);
+                        setFetchedCards(result.data.cards || []);
+                    }
                 } catch (error) {
                     console.error("Could not fetch data.", error);
                 } finally {
@@ -93,64 +87,27 @@
                 }
             };
 
-            const handleTotalChange = (card, value) => {
-                setFormData(prev => ({ ...prev, [card]: { ...prev[card], total: value } }));
-            };
+            const handleTotalChange = (card, value) => setFormData(prev => ({ ...prev, [card]: { ...prev[card], total: value } }));
+            
+            const addOverride = (card) => setFormData(prev => ({
+                ...prev, [card]: { ...prev[card], overrides: [...prev[card].overrides, { id: crypto.randomUUID(), desc: '', amount: '', owner: user1Name }] }
+            }));
 
-            const addOverride = (card) => {
-                setFormData(prev => ({
-                    ...prev,
-                    [card]: {
-                        ...prev[card],
-                        overrides: [...prev[card].overrides, { id: crypto.randomUUID(), desc: '', amount: '', owner: user1Name }]
-                    }
-                }));
-            };
+            const updateOverride = (card, id, field, value) => setFormData(prev => ({
+                ...prev, [card]: { ...prev[card], overrides: prev[card].overrides.map(ov => ov.id === id ? { ...ov, [field]: value } : ov) }
+            }));
 
-            const updateOverride = (card, id, field, value) => {
-                setFormData(prev => ({
-                    ...prev,
-                    [card]: {
-                        ...prev[card],
-                        overrides: prev[card].overrides.map(ov => ov.id === id ? { ...ov, [field]: value } : ov)
-                    }
-                }));
-            };
+            const removeOverride = (card, id) => setFormData(prev => ({
+                ...prev, [card]: { ...prev[card], overrides: prev[card].overrides.filter(ov => ov.id !== id) }
+            }));
 
-            const removeOverride = (card, id) => {
-                setFormData(prev => ({
-                    ...prev,
-                    [card]: { ...prev[card], overrides: prev[card].overrides.filter(ov => ov.id !== id) }
-                }));
-            };
+            const handleOfflineChange = (id, field, value) => setOfflineSpends(prev => prev.map(exp => exp.id === id ? { ...exp, [field]: value } : exp));
+            const addCustomOfflineSpend = () => setOfflineSpends(prev => [...prev, { id: crypto.randomUUID(), desc: '', amount: '', owner: 'Split', isCustom: true }]);
+            const removeOfflineSpend = (id) => setOfflineSpends(prev => prev.filter(exp => exp.id !== id));
 
-            const handleOfflineChange = (id, field, value) => {
-                setOfflineSpends(prev => prev.map(exp => exp.id === id ? { ...exp, [field]: value } : exp));
-            };
-
-            const addCustomOfflineSpend = () => {
-                setOfflineSpends(prev => [...prev, {
-                    id: crypto.randomUUID(), desc: '', amount: '', owner: 'Split', isCustom: true
-                }]);
-            };
-
-            const removeOfflineSpend = (id) => {
-                setOfflineSpends(prev => prev.filter(exp => exp.id !== id));
-            };
-
-            const handleLoanChange = (id, field, value) => {
-                setLoans(prev => prev.map(loan => loan.id === id ? { ...loan, [field]: value } : loan));
-            };
-
-            const addLoan = () => {
-                setLoans(prev => [...prev, {
-                    id: crypto.randomUUID(), desc: '', amount: '', borrower: user1Name
-                }]);
-            };
-
-            const removeLoan = (id) => {
-                setLoans(prev => prev.filter(loan => loan.id !== id));
-            };
+            const handleLoanChange = (id, field, value) => setLoans(prev => prev.map(loan => loan.id === id ? { ...loan, [field]: value } : loan));
+            const addLoan = () => setLoans(prev => [...prev, { id: crypto.randomUUID(), desc: '', amount: '', borrower: user1Name }]);
+            const removeLoan = (id) => setLoans(prev => prev.filter(loan => loan.id !== id));
 
             const resetForm = () => {
                 if (window.confirm("Are you sure you want to clear all entered data?")) {
@@ -163,10 +120,25 @@
             };
 
             const submitForCalculation = () => {
-                setView('summary');
+                setView('dashboard');
                 window.scrollTo(0, 0);
             };
 
+            const formatMoney = (amount) => `₹ ${parseFloat(amount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+            // Parse formatted deduction strings (e.g., "Flight Ticket - ₹10000 (Amit)")
+            const parseDeductionsLog = (logStr) => {
+                if (!logStr || logStr === 'None') return [];
+                return logStr.split(' | ').map(item => {
+                    const match = item.match(/(.*)\s-\s₹([\d.]+)\s\((.*)\)/);
+                    if (match) {
+                        return { desc: match[1].trim(), amount: parseFloat(match[2]), owner: match[3].trim() };
+                    }
+                    return null;
+                }).filter(Boolean);
+            };
+
+            // === DRAFT CALCULATIONS ===
             const activeCardsData = useMemo(() => {
                 const processed = [];
                 let grandTotal = 0, u1Grand = 0, u2Grand = 0;
@@ -174,11 +146,8 @@
                 CARDS.forEach(cardName => {
                     const data = formData[cardName];
                     const totalAmt = parseFloat(data.total);
-                    
                     if (!isNaN(totalAmt) && totalAmt > 0) {
-                        let totalOverrides = 0;
-                        let u1Share = 0;
-                        let u2Share = 0;
+                        let totalOverrides = 0, u1Share = 0, u2Share = 0;
                         const cleanOverrides = [];
 
                         data.overrides.forEach(ov => {
@@ -196,22 +165,10 @@
 
                         if (defaultOwner === user1Name) u1Share += remaining;
                         else if (defaultOwner === user2Name) u2Share += remaining;
-                        else {
-                            u1Share += (remaining / 2);
-                            u2Share += (remaining / 2);
-                        }
+                        else { u1Share += (remaining / 2); u2Share += (remaining / 2); }
 
-                        processed.push({
-                            cardName,
-                            total: totalAmt,
-                            u1Share,
-                            u2Share,
-                            overrides: cleanOverrides
-                        });
-
-                        grandTotal += totalAmt;
-                        u1Grand += u1Share;
-                        u2Grand += u2Share;
+                        processed.push({ cardName, total: totalAmt, u1Share, u2Share, overrides: cleanOverrides });
+                        grandTotal += totalAmt; u1Grand += u1Share; u2Grand += u2Share;
                     }
                 });
 
@@ -222,34 +179,18 @@
                     const amt = parseFloat(exp.amount);
                     if (!isNaN(amt) && amt > 0 && exp.desc.trim() !== '') {
                         offlineTotal += amt;
-                        
-                        let finalOwner = exp.owner;
-                        if (finalOwner === 'Auto') {
-                            finalOwner = rules.categories[exp.desc] || 'Split';
-                        }
-
+                        let finalOwner = exp.owner === 'Auto' ? (rules.categories[exp.desc] || 'Split') : exp.owner;
                         cleanOfflineOverrides.push({ desc: exp.desc, amount: amt, owner: finalOwner });
 
                         if (finalOwner === user1Name) offU1 += amt;
                         else if (finalOwner === user2Name) offU2 += amt;
-                        else {
-                            offU1 += (amt / 2);
-                            offU2 += (amt / 2);
-                        }
+                        else { offU1 += (amt / 2); offU2 += (amt / 2); }
                     }
                 });
 
                 if (offlineTotal > 0) {
-                    processed.push({
-                        cardName: 'Offline & Fixed Spends',
-                        total: offlineTotal,
-                        u1Share: offU1,
-                        u2Share: offU2,
-                        overrides: cleanOfflineOverrides
-                    });
-                    grandTotal += offlineTotal;
-                    u1Grand += offU1;
-                    u2Grand += offU2;
+                    processed.push({ cardName: 'Offline & Fixed Spends', total: offlineTotal, u1Share: offU1, u2Share: offU2, overrides: cleanOfflineOverrides });
+                    grandTotal += offlineTotal; u1Grand += offU1; u2Grand += offU2;
                 }
 
                 let loanU1 = 0, loanU2 = 0;
@@ -259,33 +200,17 @@
                     const amt = parseFloat(loan.amount);
                     if (!isNaN(amt) && amt > 0 && loan.desc.trim() !== '') {
                         cleanLoanOverrides.push({ desc: loan.desc, amount: amt, owner: `Borrower: ${loan.borrower}` });
-                        
-                        if (loan.borrower === user1Name) {
-                            loanU1 += amt;
-                            loanU2 -= amt;
-                        } else if (loan.borrower === user2Name) {
-                            loanU2 += amt;
-                            loanU1 -= amt;
-                        }
+                        if (loan.borrower === user1Name) { loanU1 += amt; loanU2 -= amt; } 
+                        else if (loan.borrower === user2Name) { loanU2 += amt; loanU1 -= amt; }
                     }
                 });
 
                 if (cleanLoanOverrides.length > 0) {
-                    processed.push({
-                        cardName: 'Inter-Personal Adjustments',
-                        total: 0,
-                        u1Share: loanU1,
-                        u2Share: loanU2,
-                        overrides: cleanLoanOverrides
-                    });
-                    u1Grand += loanU1;
-                    u2Grand += loanU2;
+                    processed.push({ cardName: 'Inter-Personal Adjustments', total: 0, u1Share: loanU1, u2Share: loanU2, overrides: cleanLoanOverrides });
+                    u1Grand += loanU1; u2Grand += loanU2;
                 }
 
-                return { 
-                    cards: processed, 
-                    summary: { total: grandTotal, u1Total: u1Grand, u2Total: u2Grand } 
-                };
+                return { cards: processed, summary: { total: grandTotal, u1Total: u1Grand, u2Total: u2Grand } };
             }, [formData, offlineSpends, loans, rules, user1Name, user2Name]);
 
             const hasActiveData = activeCardsData.cards.length > 0;
@@ -295,12 +220,7 @@
                 if (!hasActiveData) return alert('No data to sync.');
                 
                 setIsSyncing(true);
-                const payload = {
-                    action: 'syncMonth',
-                    month: selectedMonth,
-                    summary: activeCardsData.summary,
-                    cards: activeCardsData.cards
-                };
+                const payload = { action: 'syncMonth', month: selectedMonth, summary: activeCardsData.summary, cards: activeCardsData.cards };
 
                 try {
                     await fetch(scriptUrl, { method: 'POST', body: JSON.stringify(payload), mode: 'no-cors' });
@@ -311,8 +231,7 @@
                     setFormData(reset);
                     setOfflineSpends(initOfflineSpends());
                     setLoans([]);
-                    fetchLastMonth();
-                    
+                    fetchAllData();
                 } catch (error) {
                     alert('Error syncing to Sheet.');
                 } finally {
@@ -320,57 +239,151 @@
                 }
             };
 
-            const shareWhatsApp = () => {
-                const ccData = activeCardsData.cards.filter(c => c.cardName !== 'Offline & Fixed Spends' && c.cardName !== 'Inter-Personal Adjustments');
-                const offlineData = activeCardsData.cards.find(c => c.cardName === 'Offline & Fixed Spends');
-                const loanData = activeCardsData.cards.find(c => c.cardName === 'Inter-Personal Adjustments');
+            // === HISTORICAL DATA PARSING FOR CHARTS & DASHBOARD ===
+            const { chartData, pieData, lastMonthData } = useMemo(() => {
+                if (!fetchedSummary || fetchedSummary.length === 0) {
+                    return { chartData: [], pieData: [], lastMonthData: null };
+                }
 
-                const formatMoney = (amount) => `₹ ${amount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                // Isolate Rolling 12 Months
+                const sortedSummary = [...fetchedSummary].sort((a, b) => a[0].localeCompare(b[0]));
+                const rolling12 = sortedSummary.slice(-12);
 
-                let text = `🧾 *BILLSPLIT PRO: ${selectedMonth.toUpperCase()}*\n`;
-                text += `════════════════════\n`;
-                text += `💰 *Total Household Spend:* ${formatMoney(activeCardsData.summary.total)}\n`;
-                text += `👤 *${user1Name}'s Share:* ${formatMoney(activeCardsData.summary.u1Total)}\n`;
-                text += `👤 *${user2Name}'s Share:* ${formatMoney(activeCardsData.summary.u2Total)}\n`;
-                text += `════════════════════\n\n`;
+                let totalU1AllTime = 0;
+                let totalU2AllTime = 0;
 
-                if (ccData.length > 0) {
-                    text += `💳 *CREDIT CARDS*\n`;
-                    ccData.forEach(c => {
-                        text += `• *${c.cardName}:* ${formatMoney(c.total)}\n`;
-                        text += `  ↳ ${user1Name}: ${formatMoney(c.u1Share)} | ${user2Name}: ${formatMoney(c.u2Share)}\n`;
-                        if (c.overrides.length > 0) {
-                            c.overrides.forEach(ov => {
-                                text += `  📌 _${ov.desc} (${ov.owner}):_ ${formatMoney(ov.amount)}\n`;
+                const cData = rolling12.map(row => {
+                    const month = row[0];
+                    const totalSpend = parseFloat(row[1]) || 0;
+                    const u1Total = parseFloat(row[2]) || 0;
+                    const u2Total = parseFloat(row[3]) || 0;
+
+                    totalU1AllTime += u1Total;
+                    totalU2AllTime += u2Total;
+
+                    const monthCards = fetchedCards.filter(c => c[0] === month);
+                    
+                    let oneOffAmount = 0;
+                    let dedU1 = 0;
+                    let dedU2 = 0;
+
+                    monthCards.forEach(c => {
+                        const deds = parseDeductionsLog(c[5]);
+                        deds.forEach(d => {
+                            // Determine Baseline Spends vs One-Offs
+                            if (!DEFAULT_OFFLINE_SPENDS.includes(d.desc)) {
+                                oneOffAmount += d.amount;
+                            }
+                            // Calculate Deduction Volume per User
+                            if (d.owner.includes(user1Name)) dedU1 += d.amount;
+                            if (d.owner.includes(user2Name)) dedU2 += d.amount;
+                        });
+                    });
+
+                    return {
+                        name: month,
+                        Total: totalSpend,
+                        Baseline: totalSpend - oneOffAmount,
+                        [user1Name]: dedU1,
+                        [user2Name]: dedU2
+                    };
+                });
+
+                const pData = [
+                    { name: user1Name, value: totalU1AllTime },
+                    { name: user2Name, value: totalU2AllTime }
+                ];
+
+                // Isolate Last Month
+                const lastSum = sortedSummary[sortedSummary.length - 1];
+                const lastMonthStr = lastSum[0];
+                const cardsForLastMonth = fetchedCards.filter(c => c[0] === lastMonthStr);
+                const lmData = { month: lastMonthStr, total: lastSum[1], u1Total: lastSum[2], u2Total: lastSum[3], cards: cardsForLastMonth };
+
+                return { chartData: cData, pieData: pData, lastMonthData: lmData };
+            }, [fetchedSummary, fetchedCards, user1Name, user2Name]);
+
+
+            // === WHATSAPP SHARE GENERATOR ===
+            const handleShare = (type) => {
+                let text = '';
+                
+                const buildInsightsText = () => {
+                    if (chartData.length === 0) return `📊 *BILLSPLIT INSIGHTS*\nNo historical data available yet.\n\n`;
+                    
+                    const totalTracked = pieData.reduce((acc, curr) => acc + curr.value, 0);
+                    const avgSpend = totalTracked / chartData.length;
+                    
+                    let insights = `📈 *BILLSPLIT INSIGHTS (Last 12 Months)*\n`;
+                    insights += `════════════════════\n`;
+                    insights += `🔹 *Months Tracked:* ${chartData.length}\n`;
+                    insights += `🔹 *Total Household Spend:* ${formatMoney(totalTracked)}\n`;
+                    insights += `🔹 *Avg Monthly Spend:* ${formatMoney(avgSpend)}\n`;
+                    insights += `🔹 *${user1Name}'s Total Share:* ${formatMoney(pieData[0].value)}\n`;
+                    insights += `🔹 *${user2Name}'s Total Share:* ${formatMoney(pieData[1].value)}\n`;
+                    insights += `════════════════════\n\n`;
+                    return insights;
+                };
+
+                const buildLastMonthText = () => {
+                    if (!lastMonthData) return `🧾 *LAST MONTH SUMMARY*\nNo data available.\n\n`;
+                    
+                    let lmText = `🧾 *LAST MONTH: ${lastMonthData.month.toUpperCase()}*\n`;
+                    lmText += `════════════════════\n`;
+                    lmText += `💰 *Total Household Spend:* ${formatMoney(lastMonthData.total)}\n`;
+                    lmText += `👤 *${user1Name}'s Share:* ${formatMoney(lastMonthData.u1Total)}\n`;
+                    lmText += `👤 *${user2Name}'s Share:* ${formatMoney(lastMonthData.u2Total)}\n`;
+                    lmText += `════════════════════\n\n`;
+
+                    if (lastMonthData.cards.length > 0) {
+                        const ccData = lastMonthData.cards.filter(c => c[1] !== 'Offline & Fixed Spends' && c[1] !== 'Inter-Personal Adjustments');
+                        const offlineData = lastMonthData.cards.find(c => c[1] === 'Offline & Fixed Spends');
+                        const loanData = lastMonthData.cards.find(c => c[1] === 'Inter-Personal Adjustments');
+
+                        if (ccData.length > 0) {
+                            lmText += `💳 *CREDIT CARDS*\n`;
+                            ccData.forEach(c => {
+                                lmText += `• *${c[1]}:* ${formatMoney(c[2])}\n`;
+                                lmText += `  ↳ ${user1Name}: ${formatMoney(c[3])} | ${user2Name}: ${formatMoney(c[4])}\n`;
+                                if (c[5] && c[5] !== 'None') {
+                                    const overrides = c[5].split(' | ');
+                                    overrides.forEach(ov => { lmText += `  📌 _${ov}_\n`; });
+                                }
                             });
+                            lmText += `\n`;
                         }
-                    });
-                    text += `\n`;
-                }
 
-                if (offlineData && offlineData.overrides.length > 0) {
-                    text += `🏠 *FIXED & OFFLINE SPENDS*\n`;
-                    text += `• *Total:* ${formatMoney(offlineData.total)}\n`;
-                    text += `  ↳ ${user1Name}: ${formatMoney(offlineData.u1Share)} | ${user2Name}: ${formatMoney(offlineData.u2Share)}\n`;
-                    offlineData.overrides.forEach(ov => {
-                        text += `  ▫️ _${ov.desc} (${ov.owner}):_ ${formatMoney(ov.amount)}\n`;
-                    });
-                    text += `\n`;
-                }
+                        if (offlineData && offlineData[5] !== 'None') {
+                            lmText += `🏠 *FIXED & OFFLINE SPENDS*\n`;
+                            lmText += `• *Total:* ${formatMoney(offlineData[2])}\n`;
+                            lmText += `  ↳ ${user1Name}: ${formatMoney(offlineData[3])} | ${user2Name}: ${formatMoney(offlineData[4])}\n`;
+                            const overrides = offlineData[5].split(' | ');
+                            overrides.forEach(ov => { lmText += `  ▫️ _${ov}_\n`; });
+                            lmText += `\n`;
+                        }
 
-                if (loanData && loanData.overrides.length > 0) {
-                    text += `🔄 *INTER-PERSONAL ADJUSTMENTS*\n`;
-                    loanData.overrides.forEach(ov => {
-                        text += `  ▫️ _${ov.desc} (${ov.owner}):_ ${formatMoney(ov.amount)}\n`;
-                    });
-                }
+                        if (loanData && loanData[5] !== 'None') {
+                            lmText += `🔄 *INTER-PERSONAL ADJUSTMENTS*\n`;
+                            const overrides = loanData[5].split(' | ');
+                            overrides.forEach(ov => { lmText += `  ▫️ _${ov}_\n`; });
+                        }
+                    }
+                    return lmText;
+                };
 
-                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+                if (type === 'insights') text = buildInsightsText();
+                if (type === 'lastMonth') text = buildLastMonthText();
+                if (type === 'both') text = buildInsightsText() + buildLastMonthText();
+
+                window.open(`https://wa.me/?text=${encodeURIComponent(text.trim())}`);
+                setShareModalOpen(false);
             };
+
+            const COLORS = ['#3b82f6', '#a855f7']; // Blue for Amit, Purple for Alka
 
             return (
                 <div className="max-w-md mx-auto bg-white min-h-screen shadow-lg pb-24 relative">
-                    <header className="bg-teal-700 text-white p-4 sticky top-0 z-20 shadow-md flex justify-between items-center">
+                    <header className="bg-teal-700 text-white p-4 sticky top-0 z-30 shadow-md flex justify-between items-center">
                         <h1 className="text-xl font-bold"><i className="fa-solid fa-file-invoice-dollar mr-2"></i>BillSplit</h1>
                         <button onClick={() => setView('settings')} className="text-white hover:text-teal-200">
                             <i className="fa-solid fa-gear text-lg"></i>
@@ -378,6 +391,7 @@
                     </header>
 
                     <main className="p-4">
+                        {/* ================= ENTRY VIEW ================= */}
                         {view === 'entry' && (
                             <div className="space-y-5">
                                 <div className="bg-teal-50 border border-teal-100 p-4 rounded-xl flex justify-between items-center shadow-sm">
@@ -424,11 +438,8 @@
                                         {offlineSpends.map(exp => (
                                             <div key={exp.id} className={`flex gap-2 items-center p-2 border rounded-lg ${exp.amount ? 'bg-white border-teal-300 shadow-sm' : 'bg-gray-50'}`}>
                                                 {exp.isCustom && <button onClick={() => removeOfflineSpend(exp.id)} className="text-red-400 hover:text-red-600 px-1"><i className="fa-solid fa-circle-minus"></i></button>}
-                                                
                                                 <input type="text" placeholder="Description" value={exp.desc} readOnly={!exp.isCustom} onChange={e => handleOfflineChange(exp.id, 'desc', e.target.value)} className={`w-2/5 text-xs p-2 rounded ${!exp.isCustom ? 'bg-transparent font-bold text-gray-700' : 'border bg-white'}`} />
-                                                
                                                 <input type="number" placeholder="₹ 0.00" value={exp.amount} onChange={e => handleOfflineChange(exp.id, 'amount', e.target.value)} className="w-1/4 text-xs p-2 rounded border bg-white font-bold focus:ring-1 focus:ring-teal-500 outline-none text-right" />
-                                                
                                                 <select value={exp.owner} onChange={e => handleOfflineChange(exp.id, 'owner', e.target.value)} className="w-1/3 text-xs p-2 rounded border bg-white text-gray-700">
                                                     <option value="Auto">Auto (Rule)</option> 
                                                     <option value="Split">Split 50/50</option>
@@ -445,16 +456,12 @@
 
                                 <div className="mt-8">
                                     <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3 border-b pb-1">Inter-Personal Adjustments</h2>
-                                    <p className="text-xs text-gray-500 mb-2">Did someone take a loan or use shared funds for personal use? This will adjust the final splits without adding to the total household spend.</p>
                                     <div className="space-y-2">
                                         {loans.map(loan => (
                                             <div key={loan.id} className={`flex gap-2 items-center p-2 border rounded-lg ${loan.amount ? 'bg-white border-teal-300 shadow-sm' : 'bg-gray-50'}`}>
                                                 <button onClick={() => removeLoan(loan.id)} className="text-red-400 hover:text-red-600 px-1"><i className="fa-solid fa-circle-minus"></i></button>
-                                                
                                                 <input type="text" placeholder="Details (e.g. Cash Loan)" value={loan.desc} onChange={e => handleLoanChange(loan.id, 'desc', e.target.value)} className="w-2/5 text-xs p-2 rounded border bg-white" />
-                                                
                                                 <input type="number" placeholder="₹ 0.00" value={loan.amount} onChange={e => handleLoanChange(loan.id, 'amount', e.target.value)} className="w-1/4 text-xs p-2 rounded border bg-white font-bold focus:ring-1 focus:ring-teal-500 outline-none text-right" />
-                                                
                                                 <div className="w-1/3 text-xs flex flex-col">
                                                     <span className="text-[10px] text-gray-500 leading-none mb-1">Borrower:</span>
                                                     <select value={loan.borrower} onChange={e => handleLoanChange(loan.id, 'borrower', e.target.value)} className="p-1 rounded border bg-white font-semibold text-gray-700">
@@ -475,121 +482,177 @@
                                         Reset All
                                     </button>
                                     <button onClick={submitForCalculation} className="w-2/3 bg-teal-700 text-white rounded-lg p-3 font-bold text-sm shadow-md hover:bg-teal-800 transition-colors flex justify-center items-center gap-2">
-                                        Calculate Summary <i className="fa-solid fa-arrow-right"></i>
+                                        Review Draft <i className="fa-solid fa-arrow-right"></i>
                                     </button>
                                 </div>
                             </div>
                         )}
 
-                        {view === 'summary' && (
+                        {/* ================= DASHBOARD & INSIGHTS VIEW ================= */}
+                        {view === 'dashboard' && (
                             <div className="space-y-6">
-                                
                                 {isLoadingInitial && (
                                     <div className="text-center py-10 text-gray-500">
                                         <i className="fa-solid fa-spinner fa-spin text-3xl mb-2 text-teal-600"></i>
-                                        <p>Fetching database...</p>
+                                        <p>Fetching insights...</p>
                                     </div>
                                 )}
 
-                                {hasActiveData && !isLoadingInitial && (
-                                    <>
-                                        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs p-2 rounded-lg text-center font-bold shadow-sm">
-                                            <i className="fa-solid fa-triangle-exclamation mr-1"></i> Unsaved Draft - Review and Sync Below
-                                        </div>
+                                {hasActiveData && (
+                                    <div className="bg-white border-2 border-amber-300 rounded-xl p-4 shadow-md relative">
+                                        <div className="absolute top-0 right-0 bg-amber-300 text-amber-900 text-[10px] font-bold px-2 py-1 rounded-bl-lg rounded-tr-xl uppercase tracking-wider">Unsaved Draft</div>
+                                        <h3 className="font-bold text-gray-800 border-b pb-2 mb-3 mt-2"><i className="fa-solid fa-pen-nib mr-2"></i>Draft: {selectedMonth}</h3>
                                         
-                                        <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm text-center">
-                                            <p className="text-gray-500 text-sm mb-1">{selectedMonth} Household Spend</p>
-                                            <h2 className="text-3xl font-bold text-gray-800">₹{activeCardsData.summary.total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</h2>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
-                                                <p className="text-blue-600 text-sm font-semibold mb-1">{user1Name}'s Share</p>
-                                                <p className="text-xl font-bold text-blue-900">₹{activeCardsData.summary.u1Total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
-                                            </div>
-                                            <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-center">
-                                                <p className="text-purple-600 text-sm font-semibold mb-1">{user2Name}'s Share</p>
-                                                <p className="text-xl font-bold text-purple-900">₹{activeCardsData.summary.u2Total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                                        <div className="flex justify-between items-end mb-4">
+                                            <div>
+                                                <p className="text-xs text-gray-500">Household Spend</p>
+                                                <p className="text-2xl font-bold text-gray-800">{formatMoney(activeCardsData.summary.total)}</p>
                                             </div>
                                         </div>
+                                        <div className="flex justify-between text-sm bg-gray-50 p-3 rounded-lg border mb-4">
+                                            <div className="text-center w-1/2 border-r">
+                                                <p className="text-xs text-gray-500">{user1Name}'s Share</p>
+                                                <p className="font-bold text-blue-700">{formatMoney(activeCardsData.summary.u1Total)}</p>
+                                            </div>
+                                            <div className="text-center w-1/2">
+                                                <p className="text-xs text-gray-500">{user2Name}'s Share</p>
+                                                <p className="font-bold text-purple-700">{formatMoney(activeCardsData.summary.u2Total)}</p>
+                                            </div>
+                                        </div>
+                                        <button onClick={syncToSheets} disabled={isSyncing} className="w-full bg-teal-700 text-white p-3 rounded-lg font-bold flex justify-center items-center gap-2 hover:bg-teal-800 shadow-sm">
+                                            {isSyncing ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>} Sync Draft to Sheet
+                                        </button>
+                                    </div>
+                                )}
 
-                                        <div className="space-y-3">
-                                            <h3 className="font-bold text-gray-700 border-b pb-2 text-sm mt-4">Draft Breakdown</h3>
-                                            {activeCardsData.cards.map(c => (
-                                                <div key={c.cardName} className="bg-white border rounded-xl p-4 shadow-sm">
-                                                    <div className="flex justify-between font-bold text-gray-800 border-b pb-2 mb-2">
-                                                        <span>{c.cardName}</span>
-                                                        <span>{c.total > 0 ? `₹${c.total.toLocaleString('en-IN')}` : '---'}</span>
+                                {!isLoadingInitial && chartData.length > 0 && (
+                                    <div className="bg-white border rounded-xl p-4 shadow-sm">
+                                        <h3 className="font-bold text-gray-800 mb-6 border-b pb-2"><i className="fa-solid fa-chart-line mr-2"></i>Rolling 12-Month Insights</h3>
+                                        
+                                        {/* Chart 1: Total Spend vs Baseline */}
+                                        <div className="mb-8">
+                                            <p className="text-sm font-bold text-gray-700 mb-1">Household Spend Trend</p>
+                                            <p className="text-[10px] text-gray-500 mb-3 leading-tight">Total gross spend versus baseline burn (excluding one-off specific deductions).</p>
+                                            <div className="h-56">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                                        <XAxis dataKey="name" tick={{fontSize: 10}} tickMargin={10} axisLine={false} tickLine={false} />
+                                                        <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10}} axisLine={false} tickLine={false} />
+                                                        <Tooltip formatter={(value) => formatMoney(value)} labelStyle={{color: '#333', fontWeight: 'bold', fontSize: '12px'}} itemStyle={{fontSize: '12px'}} />
+                                                        <Legend wrapperStyle={{fontSize: '11px', paddingTop: '10px'}} />
+                                                        <Line type="monotone" name="Total Spend" dataKey="Total" stroke="#0f766e" strokeWidth={3} dot={{r: 3, fill: '#0f766e'}} />
+                                                        <Line type="monotone" name="Baseline (No One-Offs)" dataKey="Baseline" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                                                    </LineChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+
+                                        {/* Chart 2 & 3: Flex Grid for Pie and Bar */}
+                                        <div className="grid grid-cols-1 gap-8 mt-4 border-t pt-6">
+                                            
+                                            {/* Chart 2: Pie Chart Aggregate */}
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-700 mb-1 text-center">12-Month Aggregate Split</p>
+                                                <div className="h-48 relative">
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <PieChart>
+                                                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={2} dataKey="value" stroke="none">
+                                                                {pieData.map((entry, index) => (
+                                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                                ))}
+                                                            </Pie>
+                                                            <Tooltip formatter={(value) => formatMoney(value)} itemStyle={{fontSize: '12px'}} />
+                                                        </PieChart>
+                                                    </ResponsiveContainer>
+                                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
+                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600"><span className="w-2 h-2 rounded-full bg-blue-500"></span>{user1Name}</div>
+                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-purple-600"><span className="w-2 h-2 rounded-full bg-purple-500"></span>{user2Name}</div>
                                                     </div>
-                                                    <div className="flex justify-between text-sm text-gray-600 mb-2">
-                                                        <span>{user1Name}: ₹{c.u1Share.toLocaleString('en-IN')}</span>
-                                                        <span>{user2Name}: ₹{c.u2Share.toLocaleString('en-IN')}</span>
-                                                    </div>
-                                                    {c.overrides.map((ov, i) => (
-                                                        <div key={i} className="text-xs text-gray-500 flex justify-between bg-gray-50 p-1.5 rounded mt-1 border">
-                                                            <span>↳ {ov.desc} <span className="font-semibold">({ov.owner})</span></span>
-                                                            <span className="font-bold text-gray-700">₹{ov.amount.toLocaleString('en-IN')}</span>
-                                                        </div>
-                                                    ))}
                                                 </div>
-                                            ))}
-                                        </div>
+                                            </div>
 
-                                        <div className="flex gap-2 mt-6">
-                                            <button onClick={shareWhatsApp} className="w-1/2 bg-green-500 text-white p-3 rounded-lg font-bold flex justify-center items-center gap-2 hover:bg-green-600 shadow-md">
-                                                <i className="fa-brands fa-whatsapp text-lg"></i> Share
-                                            </button>
-                                            <button onClick={syncToSheets} disabled={isSyncing} className="w-1/2 bg-teal-700 text-white p-3 rounded-lg font-bold flex justify-center items-center gap-2 hover:bg-teal-800 shadow-md">
-                                                {isSyncing ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>} Sync Data
-                                            </button>
+                                            {/* Chart 3: Specific Deductions Volume */}
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-700 mb-1 text-center">Specific Deduction Volume</p>
+                                                <p className="text-[10px] text-gray-500 mb-2 text-center">Individual spikes parsed from specific deductions.</p>
+                                                <div className="h-48">
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                                            <XAxis dataKey="name" tick={{fontSize: 10}} tickMargin={10} axisLine={false} tickLine={false} />
+                                                            <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10}} axisLine={false} tickLine={false} />
+                                                            <Tooltip formatter={(value) => formatMoney(value)} labelStyle={{fontSize: '12px', fontWeight: 'bold'}} itemStyle={{fontSize: '12px'}} cursor={{fill: '#f8fafc'}} />
+                                                            <Bar dataKey={user1Name} stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} maxBarSize={30} />
+                                                            <Bar dataKey={user2Name} stackId="a" fill="#a855f7" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                                                        </BarChart>
+                                                    </ResponsiveContainer>
+                                                </div>
+                                            </div>
+
                                         </div>
-                                    </>
+                                    </div>
                                 )}
 
-                                {!hasActiveData && !isLoadingInitial && fetchedData && (
-                                    <>
-                                        <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs p-2 rounded-lg text-center font-bold shadow-sm">
-                                            <i className="fa-solid fa-database mr-1"></i> Successfully Fetched Sheet Data
+                                {!isLoadingInitial && lastMonthData && (
+                                    <div className="bg-white border rounded-xl p-4 shadow-sm relative">
+                                        <div className="flex justify-between items-center border-b pb-2 mb-4">
+                                            <h3 className="font-bold text-gray-800"><i className="fa-solid fa-clock-rotate-left mr-2"></i>Last Logged: {lastMonthData.month}</h3>
                                         </div>
-                                        
-                                        <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm text-center opacity-90 mt-4">
-                                            <p className="text-gray-500 text-sm mb-1">{fetchedData.month} Household Spend</p>
-                                            <h2 className="text-3xl font-bold text-gray-800">₹{parseFloat(fetchedData.total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</h2>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <div className="text-gray-500 text-sm">Household Spend</div>
+                                            <div className="text-xl font-bold text-gray-800">{formatMoney(lastMonthData.total)}</div>
                                         </div>
-
-                                        <div className="grid grid-cols-2 gap-4 opacity-90">
-                                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
-                                                <p className="text-blue-600 text-sm font-semibold mb-1">{user1Name}'s Share</p>
-                                                <p className="text-xl font-bold text-blue-900">₹{parseFloat(fetchedData.u1Total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                                        <div className="flex gap-2 text-sm mb-4">
+                                            <div className="bg-blue-50 text-blue-800 p-2 rounded flex-1 text-center font-semibold border border-blue-100">
+                                                {user1Name}:<br/>{formatMoney(lastMonthData.u1Total)}
                                             </div>
-                                            <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-center">
-                                                <p className="text-purple-600 text-sm font-semibold mb-1">{user2Name}'s Share</p>
-                                                <p className="text-xl font-bold text-purple-900">₹{parseFloat(fetchedData.u2Total).toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                                            <div className="bg-purple-50 text-purple-800 p-2 rounded flex-1 text-center font-semibold border border-purple-100">
+                                                {user2Name}:<br/>{formatMoney(lastMonthData.u2Total)}
                                             </div>
                                         </div>
 
-                                        <div className="text-center mt-8">
-                                            <p className="text-sm text-gray-500 mb-3">Ready to log a new month?</p>
-                                            <button onClick={() => setView('entry')} className="bg-teal-700 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-teal-800">
-                                                <i className="fa-solid fa-plus mr-2"></i> Start New Entry
-                                            </button>
-                                        </div>
-                                    </>
+                                        {lastMonthData.cards.length > 0 && (
+                                            <div className="space-y-2 mt-4 border-t pt-4">
+                                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Statement Breakdown</p>
+                                                {lastMonthData.cards.map((c, i) => (
+                                                    <div key={i} className="bg-gray-50 p-2 rounded border text-xs">
+                                                        <div className="flex justify-between font-bold mb-1 text-gray-700">
+                                                            <span>{c[1]}</span>
+                                                            <span>{c[2] > 0 ? formatMoney(c[2]) : '---'}</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-gray-500 mb-1">
+                                                            <span>{user1Name}: {formatMoney(c[3])}</span>
+                                                            <span>{user2Name}: {formatMoney(c[4])}</span>
+                                                        </div>
+                                                        {c[5] && c[5] !== 'None' && (
+                                                            <div className="mt-1 pt-1 border-t border-gray-200">
+                                                                {c[5].split(' | ').map((ov, j) => (
+                                                                    <div key={j} className="text-[10px] text-gray-500">↳ {ov}</div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
 
-                                {!hasActiveData && !isLoadingInitial && !fetchedData && (
+                                {!isLoadingInitial && fetchedSummary.length === 0 && !hasActiveData && (
                                     <div className="text-center py-16 text-gray-400">
                                         <i className="fa-regular fa-folder-open text-5xl mb-4 opacity-50"></i>
-                                        <p className="font-semibold text-gray-600 mb-1">No Data Found</p>
-                                        <p className="text-sm mb-6">Your Google Sheet is empty or not configured.</p>
+                                        <p className="font-semibold text-gray-600 mb-1">No Historical Data</p>
+                                        <p className="text-sm mb-6">Start logging to see insights.</p>
                                         <button onClick={() => setView('entry')} className="bg-teal-700 text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-teal-800">
-                                            Start First Entry
+                                            Log First Entry
                                         </button>
                                     </div>
                                 )}
                             </div>
                         )}
 
+                        {/* ================= SETTINGS VIEW ================= */}
                         {view === 'settings' && (
                             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-4">
                                 <h3 className="font-bold text-gray-700 border-b pb-2"><i className="fa-solid fa-gears mr-2"></i>Configuration</h3>
@@ -607,21 +670,37 @@
                                         <input type="text" value={user2Name} onChange={e => {setUser2Name(e.target.value); localStorage.setItem('bs_user2_name', e.target.value);}} className="w-full border p-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                                     </div>
                                 </div>
-                                <button onClick={() => { setView('summary'); fetchLastMonth(); }} className="w-full bg-gray-800 text-white p-3 rounded-lg font-bold mt-4 hover:bg-gray-900 shadow-md">Save & Close</button>
+                                <button onClick={() => { setView('dashboard'); fetchAllData(); }} className="w-full bg-gray-800 text-white p-3 rounded-lg font-bold mt-4 hover:bg-gray-900 shadow-md">Save & Close</button>
                             </div>
                         )}
                     </main>
+
+                    {/* WhatsApp Share Floating Action Button */}
+                    {view === 'dashboard' && (chartData.length > 0 || lastMonthData) && (
+                        <div className="fixed bottom-20 right-4 z-40">
+                            {shareModalOpen && (
+                                <div className="absolute bottom-16 right-0 bg-white border shadow-xl rounded-xl p-2 w-52 space-y-1 transform transition-all">
+                                    <button onClick={() => handleShare('lastMonth')} className="w-full text-left px-3 py-2 text-sm hover:bg-teal-50 rounded font-semibold text-gray-700 hover:text-teal-800"><i className="fa-solid fa-file-lines w-5 text-center mr-1 opacity-70"></i> Share Last Month</button>
+                                    <button onClick={() => handleShare('insights')} className="w-full text-left px-3 py-2 text-sm hover:bg-teal-50 rounded font-semibold text-gray-700 hover:text-teal-800"><i className="fa-solid fa-chart-pie w-5 text-center mr-1 opacity-70"></i> Share 12-Mo Insights</button>
+                                    <button onClick={() => handleShare('both')} className="w-full text-left px-3 py-2 text-sm hover:bg-teal-50 rounded font-bold text-teal-700"><i className="fa-solid fa-share-nodes w-5 text-center mr-1 opacity-70"></i> Share Both</button>
+                                </div>
+                            )}
+                            <button onClick={() => setShareModalOpen(!shareModalOpen)} className="bg-green-500 hover:bg-green-600 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-2xl transition-transform hover:scale-105">
+                                {shareModalOpen ? <i className="fa-solid fa-xmark"></i> : <i className="fa-brands fa-whatsapp"></i>}
+                            </button>
+                        </div>
+                    )}
 
                     <nav className="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around p-3 pb-safe z-30 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
                         <button onClick={() => setView('entry')} className={`flex flex-col items-center flex-1 transition-colors ${view === 'entry' ? 'text-teal-700' : 'text-gray-400 hover:text-gray-600'}`}>
                             <i className="fa-solid fa-keyboard text-xl mb-1"></i>
                             <span className="text-[10px] font-bold tracking-wide uppercase mt-1">Entry</span>
                         </button>
-                        <button onClick={() => setView('summary')} className={`flex flex-col items-center flex-1 transition-colors ${view === 'summary' ? 'text-teal-700' : 'text-gray-400 hover:text-gray-600'}`}>
-                            <div className={`rounded-full w-12 h-12 flex items-center justify-center -mt-6 border-4 border-white shadow-md transition-colors ${view === 'summary' ? 'bg-teal-700 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                        <button onClick={() => setView('dashboard')} className={`flex flex-col items-center flex-1 transition-colors ${view === 'dashboard' ? 'text-teal-700' : 'text-gray-400 hover:text-gray-600'}`}>
+                            <div className={`rounded-full w-12 h-12 flex items-center justify-center -mt-6 border-4 border-white shadow-md transition-colors ${view === 'dashboard' ? 'bg-teal-700 text-white' : 'bg-gray-200 text-gray-500'}`}>
                                 <i className="fa-solid fa-chart-pie text-xl"></i>
                             </div>
-                            <span className="text-[10px] font-bold tracking-wide uppercase mt-1">Summary</span>
+                            <span className="text-[10px] font-bold tracking-wide uppercase mt-1">Dashboard</span>
                         </button>
                     </nav>
                 </div>
