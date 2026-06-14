@@ -48,6 +48,7 @@
             const [fetchedSummary, setFetchedSummary] = useState([]);
             const [fetchedCards, setFetchedCards] = useState([]);
             const [shareModalOpen, setShareModalOpen] = useState(false);
+            const [minimizedCharts, setMinimizedCharts] = useState({});
 
             const [scriptUrl, setScriptUrl] = useState(() => localStorage.getItem('bs_script_url') || '');
             const [user1Name, setUser1Name] = useState(() => localStorage.getItem('bs_user1_name') || 'Amit');
@@ -123,7 +124,6 @@
                 });
             }, [sortedCardList]);
 
-            // === REVERTED TO ORIGINAL FETCH LOGIC ===
             const fetchAllData = async () => {
                 if (!scriptUrl.trim()) return;
                 setIsLoadingInitial(true);
@@ -148,7 +148,6 @@
                 }
             };
 
-            // === REVERTED TO ORIGINAL POST LOGIC (mode: no-cors) ===
             const handleAddCard = async () => {
                 if (!newCardName.trim() || !scriptUrl) return;
                 setIsAddingCard(true);
@@ -159,12 +158,10 @@
                         mode: 'no-cors'
                     });
                     
-                    // Because of 'no-cors', we assume success if it didn't throw an error.
                     setCardList(prev => [...prev, newCardName.trim()]);
                     setNewCardName('');
                     alert('Card added! Syncing list...');
                     
-                    // Refetch the data to ensure everything is aligned
                     setTimeout(fetchAllData, 1000); 
                 } catch (e) {
                     alert('Failed to add card to sheet.');
@@ -333,7 +330,6 @@
                 return { cards: processed, summary: { total: grandTotal, u1Total: u1Grand, u2Total: u2Grand } };
             }, [formData, offlineSpends, loans, rules, user1Name, user2Name, sortedCardList]);
 
-            // === REVERTED TO ORIGINAL SYNC LOGIC ===
             const syncToSheets = async () => {
                 if (!scriptUrl.trim()) return alert('Please set your Apps Script URL in settings.');
                 if (!activeCardsData.cards.length) return alert('No data to sync.');
@@ -362,38 +358,72 @@
                 }
             };
 
+            const consolidateCards = (cardsArray) => {
+                const map = {};
+                cardsArray.forEach(c => {
+                    const key = c[1]; 
+                    if(!map[key]) map[key] = { month: c[0], name: c[1], total: 0, u1: 0, u2: 0, overrides: [] };
+                    map[key].total += parseFloat(c[2]) || 0;
+                    map[key].u1 += parseFloat(c[3]) || 0;
+                    map[key].u2 += parseFloat(c[4]) || 0;
+                    if (c[5] && c[5] !== 'None') {
+                        map[key].overrides.push(...c[5].split(' | '));
+                    }
+                });
+                return Object.values(map).map(c => [
+                    c.month,
+                    c.name,
+                    c.total,
+                    c.u1,
+                    c.u2,
+                    c.overrides.length > 0 ? c.overrides.join(' | ') : 'None'
+                ]);
+            };
+
             const { chartData, pieData, lastMonthData } = useMemo(() => {
                 if (!fetchedSummary || fetchedSummary.length === 0) return { chartData: [], pieData: [], lastMonthData: null };
 
-                const sortedSummary = [...fetchedSummary].sort((a, b) => a[0].localeCompare(b[0]));
-                let filteredSummary = sortedSummary;
+                // 1. Group and consolidate multiple syncs for the same month
+                const aggSum = {};
+                fetchedSummary.forEach(row => {
+                    const m = row[0];
+                    if (!aggSum[m]) aggSum[m] = { month: m, total: 0, u1: 0, u2: 0 };
+                    aggSum[m].total += parseFloat(row[1]) || 0;
+                    aggSum[m].u1 += parseFloat(row[2]) || 0;
+                    aggSum[m].u2 += parseFloat(row[3]) || 0;
+                });
+                
+                let sortedAggSum = Object.values(aggSum).sort((a, b) => a.month.localeCompare(b.month));
+                let filteredSummary = sortedAggSum;
                 const currentYear = new Date().getFullYear();
 
                 if (timeframe === 'Rolling 12') {
-                    filteredSummary = sortedSummary.slice(-12);
+                    filteredSummary = sortedAggSum.slice(-12);
                 } else if (timeframe === 'CY') {
-                    filteredSummary = sortedSummary.filter(r => r[0].startsWith(currentYear.toString()));
+                    filteredSummary = sortedAggSum.filter(r => r.month.startsWith(currentYear.toString()));
                 } else if (timeframe === 'FY') {
                     const currentMonth = new Date().getMonth() + 1;
                     const startYear = currentMonth >= 4 ? currentYear : currentYear - 1;
                     const fyStart = `${startYear}-04`;
                     const fyEnd = `${startYear + 1}-03`;
-                    filteredSummary = sortedSummary.filter(r => r[0] >= fyStart && r[0] <= fyEnd);
+                    filteredSummary = sortedAggSum.filter(r => r.month >= fyStart && r.month <= fyEnd);
                 }
 
                 let totalU1AllTime = 0;
                 let totalU2AllTime = 0;
 
                 const cData = filteredSummary.map(row => {
-                    const month = row[0];
-                    const totalSpend = parseFloat(row[1]) || 0;
-                    const u1Total = parseFloat(row[2]) || 0;
-                    const u2Total = parseFloat(row[3]) || 0;
+                    const month = row.month;
+                    const totalSpend = row.total;
+                    const u1Total = row.u1;
+                    const u2Total = row.u2;
 
                     totalU1AllTime += u1Total;
                     totalU2AllTime += u2Total;
 
-                    const monthCards = fetchedCards.filter(c => c[0] === month);
+                    let monthCards = fetchedCards.filter(c => c[0] === month);
+                    monthCards = consolidateCards(monthCards);
+                    
                     let oneOffAmount = 0;
                     let dedU1 = 0;
                     let dedU2 = 0;
@@ -417,24 +447,42 @@
                 });
 
                 const pData = [{ name: user1Name, value: totalU1AllTime }, { name: user2Name, value: totalU2AllTime }];
-                const lastSum = sortedSummary[sortedSummary.length - 1];
-                const cardsForLastMonth = fetchedCards.filter(c => c[0] === lastSum[0]);
-                const lmData = { month: formatMonthName(lastSum[0]), total: lastSum[1], u1Total: lastSum[2], u2Total: lastSum[3], cards: cardsForLastMonth };
+                
+                const lastAggSum = sortedAggSum[sortedAggSum.length - 1];
+                let cardsForLastMonth = fetchedCards.filter(c => c[0] === lastAggSum.month);
+                cardsForLastMonth = consolidateCards(cardsForLastMonth);
+
+                const lmData = { 
+                    month: formatMonthName(lastAggSum.month), 
+                    total: lastAggSum.total, 
+                    u1Total: lastAggSum.u1, 
+                    u2Total: lastAggSum.u2, 
+                    cards: cardsForLastMonth 
+                };
 
                 return { chartData: cData, pieData: pData, lastMonthData: lmData };
             }, [fetchedSummary, fetchedCards, user1Name, user2Name, timeframe]);
 
+            const uniqueMonths = useMemo(() => {
+                return [...new Set(fetchedSummary.map(s => s[0]))].sort().reverse();
+            }, [fetchedSummary]);
+
             const historyMonthData = useMemo(() => {
                 if (!historyMonth || !fetchedSummary || fetchedSummary.length === 0) return null;
                 
-                // 1. Find the summary row for the currently selected historyMonth
-                const sumRow = fetchedSummary.find(r => r[0] === historyMonth);
-                if (!sumRow) return null;
+                let total = 0, u1Total = 0, u2Total = 0;
+                const monthRows = fetchedSummary.filter(r => r[0] === historyMonth);
+                if (monthRows.length === 0) return null;
+
+                monthRows.forEach(r => {
+                    total += parseFloat(r[1]) || 0;
+                    u1Total += parseFloat(r[2]) || 0;
+                    u2Total += parseFloat(r[3]) || 0;
+                });
                 
-                // 2. Filter the detailed cards to ONLY show data for the selected month
                 let cardsForMonth = fetchedCards.filter(c => c[0] === historyMonth);
+                cardsForMonth = consolidateCards(cardsForMonth);
                 
-                // 3. Apply search query if active
                 if (searchQuery.trim()) {
                     const lowerQ = searchQuery.toLowerCase();
                     cardsForMonth = cardsForMonth.filter(c => 
@@ -443,13 +491,7 @@
                     );
                 }
 
-                return { 
-                    month: formatMonthName(sumRow[0]), 
-                    total: sumRow[1], 
-                    u1Total: sumRow[2], 
-                    u2Total: sumRow[3], 
-                    cards: cardsForMonth 
-                };
+                return { month: formatMonthName(historyMonth), total, u1Total, u2Total, cards: cardsForMonth };
             }, [historyMonth, fetchedSummary, fetchedCards, searchQuery]);
 
             const handleShare = (type, customData = null) => {
@@ -460,21 +502,26 @@
                     const totalTracked = pieData.reduce((acc, curr) => acc + curr.value, 0);
                     const avgSpend = totalTracked / chartData.length;
                     
-                    let insights = `📈 *BILLSPLIT INSIGHTS (${timeframe})*\n════════════════════\n`;
-                    insights += `🔹 *Months Tracked:* ${chartData.length}\n`;
-                    insights += `🔹 *Total Household Spend:* ${formatMoney(totalTracked)}\n`;
-                    insights += `🔹 *Avg Monthly Spend:* ${formatMoney(avgSpend)}\n`;
-                    insights += `🔹 *${user1Name}'s Total Share:* ${formatMoney(pieData[0].value)}\n`;
-                    insights += `🔹 *${user2Name}'s Total Share:* ${formatMoney(pieData[1].value)}\n════════════════════\n\n`;
+                    let insights = `📈 *BILLSPLIT INSIGHTS (${timeframe.toUpperCase()})*\n`;
+                    insights += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+                    insights += `📅 *Months Tracked:* ${chartData.length}\n`;
+                    insights += `💰 *Household Spend:* ${formatMoney(totalTracked)}\n`;
+                    insights += `📉 *Monthly Average:* ${formatMoney(avgSpend)}\n\n`;
+                    insights += `🔵 *${user1Name}'s Share:* ${formatMoney(pieData[0].value)}\n`;
+                    insights += `🟣 *${user2Name}'s Share:* ${formatMoney(pieData[1].value)}\n\n`;
+                    insights += `━━━━━━━━━━━━━━━━━━━━━\n`;
+                    insights += `✨ _Generated via BillSplit Pro_`;
                     return insights;
                 };
 
                 const buildMonthText = (dataObj, label = "LAST MONTH") => {
-                    if (!dataObj) return `🧾 *${label} SUMMARY*\nNo data available.\n\n`;
-                    let mText = `🧾 *${label}: ${dataObj.month.toUpperCase()}*\n════════════════════\n`;
-                    mText += `💰 *Total Household Spend:* ${formatMoney(dataObj.total)}\n`;
-                    mText += `👤 *${user1Name}'s Share:* ${formatMoney(dataObj.u1Total)}\n`;
-                    mText += `👤 *${user2Name}'s Share:* ${formatMoney(dataObj.u2Total)}\n════════════════════\n\n`;
+                    if (!dataObj) return `📊 *${label} SUMMARY*\nNo data available.\n\n`;
+                    let mText = `📊 *${label.toUpperCase()} SUMMARY*\n`;
+                    mText += `🗓️ *MONTH:* ${dataObj.month.toUpperCase()}\n`;
+                    mText += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+                    mText += `💰 *Total Household Spend:* ${formatMoney(dataObj.total)}\n\n`;
+                    mText += `🔵 *${user1Name}'s Share:* ${formatMoney(dataObj.u1Total)}\n`;
+                    mText += `🟣 *${user2Name}'s Share:* ${formatMoney(dataObj.u2Total)}\n\n`;
 
                     if (dataObj.cards.length > 0) {
                         const ccData = dataObj.cards.filter(c => c[1] !== 'Offline & Fixed Spends' && c[1] !== 'Inter-Personal Adjustments');
@@ -482,109 +529,125 @@
                         const loanData = dataObj.cards.find(c => c[1] === 'Inter-Personal Adjustments');
 
                         if (ccData.length > 0) {
-                            mText += `💳 *CREDIT CARDS*\n`;
+                            mText += `━━━━━━━━━━━━━━━━━━━━━\n`;
+                            mText += `💳 *CREDIT CARDS*\n\n`;
                             ccData.forEach(c => {
-                                mText += `• *${c[1]}:* ${formatMoney(c[2])}\n`;
-                                mText += `  ↳ ${user1Name}: ${formatMoney(c[3])} | ${user2Name}: ${formatMoney(c[4])}\n`;
+                                mText += `🔹 *${c[1]}* (${formatMoney(c[2])})\n`;
+                                mText += `   ↳ ${user1Name}: ${formatMoney(c[3])} | ${user2Name}: ${formatMoney(c[4])}\n`;
                                 if (c[5] && c[5] !== 'None') {
-                                    c[5].split(' | ').forEach(ov => { mText += `  📌 _${formatOverrideString(ov)}_\n`; });
+                                    c[5].split(' | ').forEach(ov => { mText += `   📌 _${formatOverrideString(ov)}_\n`; });
                                 }
+                                mText += `\n`;
                             });
-                            mText += `\n`;
                         }
 
                         if (offlineData && offlineData[5] !== 'None') {
-                            mText += `🏠 *FIXED & OFFLINE SPENDS*\n`;
-                            mText += `• *Total:* ${formatMoney(offlineData[2])}\n`;
-                            mText += `  ↳ ${user1Name}: ${formatMoney(offlineData[3])} | ${user2Name}: ${formatMoney(offlineData[4])}\n`;
-                            offlineData[5].split(' | ').forEach(ov => { mText += `  ▫️ _${formatOverrideString(ov)}_\n`; });
+                            mText += `━━━━━━━━━━━━━━━━━━━━━\n`;
+                            mText += `🏠 *FIXED & OFFLINE SPENDS*\n\n`;
+                            mText += `🔹 *Total:* ${formatMoney(offlineData[2])}\n`;
+                            mText += `   ↳ ${user1Name}: ${formatMoney(offlineData[3])} | ${user2Name}: ${formatMoney(offlineData[4])}\n`;
+                            offlineData[5].split(' | ').forEach(ov => { mText += `   ▫️ _${formatOverrideString(ov)}_\n`; });
                             mText += `\n`;
                         }
 
                         if (loanData && loanData[5] !== 'None') {
-                            mText += `🔄 *INTER-PERSONAL Adjustments*\n`;
-                            loanData[5].split(' | ').forEach(ov => { mText += `  ▫️ _${formatOverrideString(ov)}_\n`; });
+                            mText += `━━━━━━━━━━━━━━━━━━━━━\n`;
+                            mText += `🔄 *INTER-PERSONAL ADJUSTMENTS*\n\n`;
+                            loanData[5].split(' | ').forEach(ov => { mText += `   ▫️ _${formatOverrideString(ov)}_\n`; });
+                            mText += `\n`;
                         }
                     }
+                    mText += `━━━━━━━━━━━━━━━━━━━━━\n`;
+                    mText += `✨ _Generated via BillSplit Pro_`;
                     return mText;
                 };
 
                 if (type === 'insights') text = buildInsightsText();
                 if (type === 'lastMonth') text = buildMonthText(lastMonthData, "LAST MONTH");
-                if (type === 'both') text = buildInsightsText() + buildMonthText(lastMonthData, "LAST MONTH");
-                if (type === 'history') text = buildMonthText(customData, "MONTHLY SUMMARY");
+                if (type === 'both') text = buildInsightsText() + `\n\n` + buildMonthText(lastMonthData, "LAST MONTH");
+                if (type === 'history') text = buildMonthText(customData, "MONTHLY");
 
                 window.open(`https://wa.me/?text=${encodeURIComponent(text.trim())}`);
                 setShareModalOpen(false);
             };
 
+            const toggleChart = (e, id) => {
+                e.stopPropagation();
+                setMinimizedCharts(prev => ({...prev, [id]: !prev[id]}));
+            };
+
             const COLORS = ['#3b82f6', '#a855f7'];
 
             const renderChart = (id, index) => {
+                const isMin = minimizedCharts[id];
+                let title = "", subtitle = "";
+                if (id === 'trend') { title = "Household Spend Trend"; subtitle = "Total gross spend versus baseline burn."; }
+                if (id === 'pie') { title = `${timeframe} Aggregate Split`; subtitle = "Overall cumulative share breakdown."; }
+                if (id === 'bar') { title = "Ad-hoc Spend Volume"; subtitle = "Individual spikes parsed from ad-hoc spends."; }
+
                 return (
                     <div key={id} draggable onDragStart={(e) => handleDragStart(e, id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, id)} className="bg-white border rounded-xl p-4 shadow-sm mb-6 relative cursor-move hover:shadow-md transition-shadow">
-                        <div className="absolute top-2 right-2 flex flex-col items-center gap-1 z-10 opacity-40 hover:opacity-100">
-                            <button onClick={() => moveChart(index, 'up')} disabled={index === 0} className="p-1 hover:text-teal-600 disabled:opacity-30"><i className="fa-solid fa-chevron-up text-xs"></i></button>
-                            <i className="fa-solid fa-grip-lines text-gray-400"></i>
-                            <button onClick={() => moveChart(index, 'down')} disabled={index === chartOrder.length - 1} className="p-1 hover:text-teal-600 disabled:opacity-30"><i className="fa-solid fa-chevron-down text-xs"></i></button>
+                        <div className="absolute top-2 right-2 flex items-center gap-1 z-10 bg-white/80 rounded px-1">
+                            <button onClick={(e) => toggleChart(e, id)} className="p-1 hover:text-teal-600"><i className={`fa-solid ${isMin ? 'fa-chevron-down' : 'fa-chevron-up'} text-sm`}></i></button>
+                            {!isMin && (
+                                <div className="flex flex-col items-center ml-1 border-l pl-1">
+                                    <button onClick={() => moveChart(index, 'up')} disabled={index === 0} className="hover:text-teal-600 disabled:opacity-30 p-0.5"><i className="fa-solid fa-arrow-up text-[10px]"></i></button>
+                                    <i className="fa-solid fa-grip-lines text-gray-300 text-[8px] my-0.5"></i>
+                                    <button onClick={() => moveChart(index, 'down')} disabled={index === chartOrder.length - 1} className="hover:text-teal-600 disabled:opacity-30 p-0.5"><i className="fa-solid fa-arrow-down text-[10px]"></i></button>
+                                </div>
+                            )}
                         </div>
                         
-                        {id === 'trend' && (
-                            <div className="pr-6">
-                                <p className="text-sm font-bold text-gray-700 mb-1">Household Spend Trend</p>
-                                <p className="text-[10px] text-gray-500 mb-3 leading-tight">Total gross spend versus baseline burn.</p>
-                                <div className="h-56">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                                            <XAxis dataKey="name" tick={{fontSize: 10}} tickMargin={10} axisLine={false} tickLine={false} />
-                                            <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10}} axisLine={false} tickLine={false} />
-                                            <Tooltip formatter={(value) => formatMoney(value)} labelStyle={{color: '#333', fontWeight: 'bold', fontSize: '12px'}} itemStyle={{fontSize: '12px'}} />
-                                            <Legend wrapperStyle={{fontSize: '11px', paddingTop: '10px'}} />
-                                            <Line type="monotone" name="Total Spend" dataKey="Total" stroke="#0f766e" strokeWidth={3} dot={{r: 3, fill: '#0f766e'}} />
-                                            <Line type="monotone" name="Baseline (No One-Offs)" dataKey="Baseline" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" dot={false} />
-                                        </LineChart>
-                                    </ResponsiveContainer>
+                        <div className="pr-12">
+                            <p className="text-sm font-bold text-gray-700 mb-1">{title}</p>
+                            {!isMin && <p className="text-[10px] text-gray-500 mb-3 leading-tight">{subtitle}</p>}
+                        </div>
+
+                        {!isMin && id === 'trend' && (
+                            <div className="h-56 mt-2">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                        <XAxis dataKey="name" tick={{fontSize: 10}} tickMargin={10} axisLine={false} tickLine={false} />
+                                        <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10}} axisLine={false} tickLine={false} />
+                                        <Tooltip formatter={(value) => formatMoney(value)} labelStyle={{color: '#333', fontWeight: 'bold', fontSize: '12px'}} itemStyle={{fontSize: '12px'}} />
+                                        <Legend wrapperStyle={{fontSize: '11px', paddingTop: '10px'}} />
+                                        <Line type="monotone" name="Total Spend" dataKey="Total" stroke="#0f766e" strokeWidth={3} dot={{r: 3, fill: '#0f766e'}} />
+                                        <Line type="monotone" name="Baseline (No One-Offs)" dataKey="Baseline" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+
+                        {!isMin && id === 'pie' && (
+                            <div className="h-48 relative mt-2">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={2} dataKey="value" stroke="none">
+                                            {pieData.map((entry, idx) => <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />)}
+                                        </Pie>
+                                        <Tooltip formatter={(value) => formatMoney(value)} itemStyle={{fontSize: '12px'}} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
+                                    <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600"><span className="w-2 h-2 rounded-full bg-blue-500"></span>{user1Name}</div>
+                                    <div className="flex items-center gap-1 text-[10px] font-bold text-purple-600"><span className="w-2 h-2 rounded-full bg-purple-500"></span>{user2Name}</div>
                                 </div>
                             </div>
                         )}
 
-                        {id === 'pie' && (
-                            <div className="pr-6">
-                                <p className="text-sm font-bold text-gray-700 mb-1 text-center">{timeframe} Aggregate Split</p>
-                                <div className="h-48 relative">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={2} dataKey="value" stroke="none">
-                                                {pieData.map((entry, idx) => <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />)}
-                                            </Pie>
-                                            <Tooltip formatter={(value) => formatMoney(value)} itemStyle={{fontSize: '12px'}} />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
-                                        <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600"><span className="w-2 h-2 rounded-full bg-blue-500"></span>{user1Name}</div>
-                                        <div className="flex items-center gap-1 text-[10px] font-bold text-purple-600"><span className="w-2 h-2 rounded-full bg-purple-500"></span>{user2Name}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {id === 'bar' && (
-                            <div className="pr-6">
-                                <p className="text-sm font-bold text-gray-700 mb-1 text-center">Ad-hoc Spend Volume</p>
-                                <p className="text-[10px] text-gray-500 mb-2 text-center">Individual spikes parsed from ad-hoc spends.</p>
-                                <div className="h-48">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                                            <XAxis dataKey="name" tick={{fontSize: 10}} tickMargin={10} axisLine={false} tickLine={false} />
-                                            <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10}} axisLine={false} tickLine={false} />
-                                            <Tooltip formatter={(value) => formatMoney(value)} labelStyle={{fontSize: '12px', fontWeight: 'bold'}} itemStyle={{fontSize: '12px'}} cursor={{fill: '#f8fafc'}} />
-                                            <Bar dataKey={user1Name} stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} maxBarSize={30} />
-                                            <Bar dataKey={user2Name} stackId="a" fill="#a855f7" radius={[4, 4, 0, 0]} maxBarSize={30} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
+                        {!isMin && id === 'bar' && (
+                            <div className="h-48 mt-2">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                        <XAxis dataKey="name" tick={{fontSize: 10}} tickMargin={10} axisLine={false} tickLine={false} />
+                                        <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10}} axisLine={false} tickLine={false} />
+                                        <Tooltip formatter={(value) => formatMoney(value)} labelStyle={{fontSize: '12px', fontWeight: 'bold'}} itemStyle={{fontSize: '12px'}} cursor={{fill: '#f8fafc'}} />
+                                        <Bar dataKey={user1Name} stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} maxBarSize={30} />
+                                        <Bar dataKey={user2Name} stackId="a" fill="#a855f7" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                                    </BarChart>
+                                </ResponsiveContainer>
                             </div>
                         )}
                     </div>
@@ -819,8 +882,8 @@
                                     <div className="mb-4">
                                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Select Month</label>
                                         <select value={historyMonth} onChange={e => setHistoryMonth(e.target.value)} className="w-full border-2 border-teal-100 p-3 rounded-xl text-base bg-white font-bold text-teal-800 outline-none focus:ring-2 focus:ring-teal-500 shadow-sm">
-                                            {fetchedSummary.slice().reverse().map(s => (
-                                                <option key={s[0]} value={s[0]}>{formatMonthName(s[0])}</option>
+                                            {uniqueMonths.map(m => (
+                                                <option key={m} value={m}>{formatMonthName(m)}</option>
                                             ))}
                                         </select>
                                     </div>
