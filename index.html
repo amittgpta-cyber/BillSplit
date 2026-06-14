@@ -4,12 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BillSplit Pro</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+    
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+    
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+    
+    <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -27,6 +35,11 @@
         const DEFAULT_OFFLINE_SPENDS = [
             'Home Loan EMI', 'Monthly Rent', 'Society Maintenance', 'Cook Salary', 'Cleaning Maid Salary', 'Car Wash', 'Electricity Bill', 'Broadband Bill'
         ];
+
+        // Safe ID Generator to replace crypto.randomUUID() for file:/// compatibility
+        const generateId = () => {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        };
 
         const App = () => {
             const [view, setView] = useState('dashboard'); 
@@ -53,7 +66,7 @@
             });
 
             const initOfflineSpends = () => DEFAULT_OFFLINE_SPENDS.map(desc => ({
-                id: crypto.randomUUID(), desc: desc, amount: '', owner: 'Auto', isCustom: false
+                id: generateId(), desc: desc, amount: '', owner: 'Auto', isCustom: false
             }));
             const [offlineSpends, setOfflineSpends] = useState(initOfflineSpends());
             const [loans, setLoans] = useState([]);
@@ -90,7 +103,7 @@
             const handleTotalChange = (card, value) => setFormData(prev => ({ ...prev, [card]: { ...prev[card], total: value } }));
             
             const addOverride = (card) => setFormData(prev => ({
-                ...prev, [card]: { ...prev[card], overrides: [...prev[card].overrides, { id: crypto.randomUUID(), desc: '', amount: '', owner: user1Name }] }
+                ...prev, [card]: { ...prev[card], overrides: [...prev[card].overrides, { id: generateId(), desc: '', amount: '', owner: user1Name }] }
             }));
 
             const updateOverride = (card, id, field, value) => setFormData(prev => ({
@@ -102,11 +115,11 @@
             }));
 
             const handleOfflineChange = (id, field, value) => setOfflineSpends(prev => prev.map(exp => exp.id === id ? { ...exp, [field]: value } : exp));
-            const addCustomOfflineSpend = () => setOfflineSpends(prev => [...prev, { id: crypto.randomUUID(), desc: '', amount: '', owner: 'Split', isCustom: true }]);
+            const addCustomOfflineSpend = () => setOfflineSpends(prev => [...prev, { id: generateId(), desc: '', amount: '', owner: 'Split', isCustom: true }]);
             const removeOfflineSpend = (id) => setOfflineSpends(prev => prev.filter(exp => exp.id !== id));
 
             const handleLoanChange = (id, field, value) => setLoans(prev => prev.map(loan => loan.id === id ? { ...loan, [field]: value } : loan));
-            const addLoan = () => setLoans(prev => [...prev, { id: crypto.randomUUID(), desc: '', amount: '', borrower: user1Name }]);
+            const addLoan = () => setLoans(prev => [...prev, { id: generateId(), desc: '', amount: '', borrower: user1Name }]);
             const removeLoan = (id) => setLoans(prev => prev.filter(loan => loan.id !== id));
 
             const resetForm = () => {
@@ -126,7 +139,7 @@
 
             const formatMoney = (amount) => `₹ ${parseFloat(amount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
-            // Parse formatted deduction strings (e.g., "Flight Ticket - ₹10000 (Amit)")
+            // Parse formatted deduction strings
             const parseDeductionsLog = (logStr) => {
                 if (!logStr || logStr === 'None') return [];
                 return logStr.split(' | ').map(item => {
@@ -270,11 +283,9 @@
                     monthCards.forEach(c => {
                         const deds = parseDeductionsLog(c[5]);
                         deds.forEach(d => {
-                            // Determine Baseline Spends vs One-Offs
                             if (!DEFAULT_OFFLINE_SPENDS.includes(d.desc)) {
                                 oneOffAmount += d.amount;
                             }
-                            // Calculate Deduction Volume per User
                             if (d.owner.includes(user1Name)) dedU1 += d.amount;
                             if (d.owner.includes(user2Name)) dedU2 += d.amount;
                         });
@@ -294,7 +305,6 @@
                     { name: user2Name, value: totalU2AllTime }
                 ];
 
-                // Isolate Last Month
                 const lastSum = sortedSummary[sortedSummary.length - 1];
                 const lastMonthStr = lastSum[0];
                 const cardsForLastMonth = fetchedCards.filter(c => c[0] === lastMonthStr);
@@ -379,7 +389,7 @@
                 setShareModalOpen(false);
             };
 
-            const COLORS = ['#3b82f6', '#a855f7']; // Blue for Amit, Purple for Alka
+            const COLORS = ['#3b82f6', '#a855f7'];
 
             return (
                 <div className="max-w-md mx-auto bg-white min-h-screen shadow-lg pb-24 relative">
