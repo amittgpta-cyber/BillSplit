@@ -142,7 +142,6 @@
                 window.scrollTo(0, 0);
             };
 
-            // Enhanced formatMoney: dynamic decimals
             const formatMoney = (amount) => {
                 const num = parseFloat(amount);
                 if (isNaN(num)) return '---';
@@ -153,18 +152,20 @@
                 })}`;
             };
 
-            // Format ISO dates into readable Month Year
             const formatMonthName = (dateStr) => {
                 try {
-                    const date = new Date(dateStr);
-                    if (isNaN(date.getTime())) return dateStr;
-                    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                    const parts = dateStr.split('-');
+                    if (parts.length >= 2) {
+                        const date = new Date(parts[0], parts[1] - 1);
+                        const month = date.toLocaleDateString('en-US', { month: 'short' });
+                        return `${month}'${parts[0].slice(-2)}`;
+                    }
+                    return dateStr;
                 } catch (e) {
                     return dateStr;
                 }
             };
 
-            // Format specific deduction overrides using dynamic formatMoney
             const formatOverrideString = (ovStr) => {
                 if (!ovStr) return '';
                 const match = ovStr.match(/(.*)\s-\s₹([\d.]+)\s\((.*)\)/);
@@ -185,7 +186,6 @@
                 }).filter(Boolean);
             };
 
-            // === DRAFT CALCULATIONS ===
             const activeCardsData = useMemo(() => {
                 const processed = [];
                 let grandTotal = 0, u1Grand = 0, u2Grand = 0;
@@ -286,13 +286,11 @@
                 }
             };
 
-            // === HISTORICAL DATA PARSING FOR CHARTS & DASHBOARD ===
             const { chartData, pieData, lastMonthData } = useMemo(() => {
                 if (!fetchedSummary || fetchedSummary.length === 0) {
                     return { chartData: [], pieData: [], lastMonthData: null };
                 }
 
-                // Isolate Rolling 12 Months
                 const sortedSummary = [...fetchedSummary].sort((a, b) => a[0].localeCompare(b[0]));
                 const rolling12 = sortedSummary.slice(-12);
 
@@ -347,8 +345,6 @@
                 return { chartData: cData, pieData: pData, lastMonthData: lmData };
             }, [fetchedSummary, fetchedCards, user1Name, user2Name]);
 
-
-            // === WHATSAPP SHARE GENERATOR ===
             const handleShare = (type) => {
                 let text = '';
                 
@@ -545,7 +541,7 @@
                                 {hasActiveData && (
                                     <div className="bg-white border-2 border-amber-300 rounded-xl p-4 shadow-md relative">
                                         <div className="absolute top-0 right-0 bg-amber-300 text-amber-900 text-[10px] font-bold px-2 py-1 rounded-bl-lg rounded-tr-xl uppercase tracking-wider">Unsaved Draft</div>
-                                        <h3 className="font-bold text-gray-800 border-b pb-2 mb-3 mt-2"><i className="fa-solid fa-pen-nib mr-2"></i>Draft: {selectedMonth}</h3>
+                                        <h3 className="font-bold text-gray-800 border-b pb-2 mb-3 mt-2"><i className="fa-solid fa-pen-nib mr-2"></i>Draft: {formatMonthName(selectedMonth)}</h3>
                                         
                                         <div className="flex justify-between items-end mb-4">
                                             <div>
