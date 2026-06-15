@@ -48,8 +48,16 @@
             const [fetchedSummary, setFetchedSummary] = useState([]);
             const [fetchedCards, setFetchedCards] = useState([]);
             const [shareModalOpen, setShareModalOpen] = useState(false);
-            const [minimizedCharts, setMinimizedCharts] = useState({});
             const [expandedUser, setExpandedUser] = useState(null);
+
+            const [chartOrder, setChartOrder] = useState(() => {
+                try { const saved = localStorage.getItem('bs_chart_order'); return saved ? JSON.parse(saved) : ['trend', 'pie', 'bar']; } 
+                catch { return ['trend', 'pie', 'bar']; }
+            });
+            const [minimizedCharts, setMinimizedCharts] = useState(() => {
+                try { const saved = localStorage.getItem('bs_minimized_charts'); return saved ? JSON.parse(saved) : {}; } 
+                catch { return {}; }
+            });
 
             const [scriptUrl, setScriptUrl] = useState(() => localStorage.getItem('bs_script_url') || '');
             const [user1Name, setUser1Name] = useState(() => localStorage.getItem('bs_user1_name') || 'Amit');
@@ -73,8 +81,6 @@
             const [showHistory, setShowHistory] = useState(false);
             const [historyMonth, setHistoryMonth] = useState('');
             const [searchQuery, setSearchQuery] = useState('');
-            
-            const [chartOrder, setChartOrder] = useState(['trend', 'pie', 'bar']);
             const [timeframe, setTimeframe] = useState('Rolling 12');
 
             const rules = useMemo(() => ({
@@ -97,6 +103,9 @@
                 if (parts.length >= 2) return `${parts[0]}-${parts[1].padStart(2, '0')}`;
                 return s.substring(0, 7); 
             };
+
+            useEffect(() => { localStorage.setItem('bs_chart_order', JSON.stringify(chartOrder)); }, [chartOrder]);
+            useEffect(() => { localStorage.setItem('bs_minimized_charts', JSON.stringify(minimizedCharts)); }, [minimizedCharts]);
 
             useEffect(() => {
                 if (scriptUrl) fetchAllData();
@@ -432,6 +441,7 @@
                     monthCards = consolidateCards(monthCards);
                     
                     let oneOffAmount = 0;
+                    let hhTotal = 0;
                     let dedU1 = 0;
                     let dedU2 = 0;
 
@@ -440,9 +450,16 @@
                         deds.forEach(d => {
                             if (d && d.desc && d.owner) {
                                 const isHousehold = DEFAULT_OFFLINE_SPENDS.some(def => d.desc.toLowerCase().includes(def.toLowerCase()));
-                                if (!isHousehold) oneOffAmount += d.amount;
-                                if (d.owner.includes(user1Name)) dedU1 += d.amount;
-                                if (d.owner.includes(user2Name)) dedU2 += d.amount;
+                                if (isHousehold) {
+                                    hhTotal += d.amount;
+                                } else if (c[1] !== 'Inter-Personal Adjustments') {
+                                    oneOffAmount += d.amount;
+                                }
+                                
+                                if (c[1] !== 'Inter-Personal Adjustments') {
+                                    if (d.owner.includes(user1Name)) dedU1 += d.amount;
+                                    if (d.owner.includes(user2Name)) dedU2 += d.amount;
+                                }
                             }
                         });
                     });
@@ -450,6 +467,7 @@
                     return {
                         name: formatMonthName(month),
                         Total: totalSpend,
+                        Household: hhTotal,
                         Baseline: totalSpend - oneOffAmount,
                         [user1Name]: dedU1,
                         [user2Name]: dedU2
@@ -505,9 +523,7 @@
                 return { month: formatMonthName(historyMonth), total, u1Total, u2Total, cards: cardsForMonth };
             }, [historyMonth, fetchedSummary, fetchedCards, searchQuery]);
 
-            const handleShare = (type, customData = null) => {
-                let text = '';
-                
+            const generateShareText = (type, customData = null) => {
                 const e = {
                     chart: '\uD83D\uDCCA', cal: '\uD83D\uDCC5', money: '\uD83D\uDCB0', down: '\uD83D\uDCC9', 
                     u1: '\uD83D\uDD35', u2: '\uD83D\uDFE3', sparkle: '\u2728', card: '\uD83D\uDCB3', 
@@ -581,13 +597,25 @@
                     return mText;
                 };
 
-                if (type === 'insights') text = buildInsightsText();
-                if (type === 'lastMonth') text = buildMonthText(lastMonthData, "LAST MONTH");
-                if (type === 'both') text = buildInsightsText() + `\n\n` + buildMonthText(lastMonthData, "LAST MONTH");
-                if (type === 'history') text = buildMonthText(customData, "MONTHLY");
+                if (type === 'insights') return buildInsightsText();
+                if (type === 'lastMonth') return buildMonthText(lastMonthData, "LAST MONTH");
+                if (type === 'both') return buildInsightsText() + `\n\n` + buildMonthText(lastMonthData, "LAST MONTH");
+                if (type === 'history') return buildMonthText(customData, "MONTHLY");
+                return '';
+            };
 
+            const handleShare = (type, customData = null) => {
+                const text = generateShareText(type, customData);
                 window.open(`https://wa.me/?text=${encodeURIComponent(text.trim())}`);
                 setShareModalOpen(false);
+            };
+
+            const handleCopy = (type, customData = null) => {
+                const text = generateShareText(type, customData);
+                navigator.clipboard.writeText(text).then(() => {
+                    alert("Text copied to clipboard!");
+                    setShareModalOpen(false);
+                });
             };
 
             const toggleChart = (e, id) => {
@@ -732,7 +760,7 @@
             const renderChart = (id, index) => {
                 const isMin = minimizedCharts[id];
                 let title = "", subtitle = "";
-                if (id === 'trend') { title = "Household Spend Trend"; subtitle = "Total gross spend versus baseline burn."; }
+                if (id === 'trend') { title = "Household Spend Trend"; subtitle = "Total gross vs baseline vs actual household."; }
                 if (id === 'pie') { title = `${timeframe} Aggregate Split`; subtitle = "Overall cumulative share breakdown."; }
                 if (id === 'bar') { title = "Ad-hoc Spend Volume"; subtitle = "Individual spikes parsed from ad-hoc spends."; }
 
@@ -757,7 +785,7 @@
                         </div>
 
                         {!isMin && id === 'trend' && (
-                            <div className="h-56 mt-4">
+                            <div className="h-64 mt-4">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
@@ -766,7 +794,8 @@
                                         <Tooltip formatter={(value) => formatMoney(value)} labelStyle={{color: '#333', fontWeight: 'bold', fontSize: '12px'}} itemStyle={{fontSize: '12px'}} />
                                         <Legend wrapperStyle={{fontSize: '11px', paddingTop: '10px'}} />
                                         <Line type="monotone" name="Total Spend" dataKey="Total" stroke="#0f766e" strokeWidth={3} dot={{r: 3, fill: '#0f766e'}} />
-                                        <Line type="monotone" name="Baseline (No One-Offs)" dataKey="Baseline" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                                        <Line type="monotone" name="Baseline" dataKey="Baseline" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                                        <Line type="monotone" name="Household" dataKey="Household" stroke="#eab308" strokeWidth={3} dot={{r: 3, fill: '#eab308'}} />
                                     </LineChart>
                                 </ResponsiveContainer>
                             </div>
@@ -1045,6 +1074,9 @@
                                     <div className="mb-6 relative">
                                         <i className="fa-solid fa-search absolute left-3 top-3.5 text-gray-400 text-sm"></i>
                                         <input type="text" placeholder="Search cards or expenses..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full border p-2.5 pl-9 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500 shadow-sm" />
+                                        {searchQuery && (
+                                            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"><i className="fa-solid fa-xmark text-sm"></i></button>
+                                        )}
                                     </div>
 
                                     {historyMonthData ? (
@@ -1123,14 +1155,17 @@
                     {view === 'dashboard' && chartData.length > 0 && !showHistory && (
                         <div className="fixed bottom-20 right-4 z-40">
                             {shareModalOpen && (
-                                <div className="absolute bottom-16 right-0 bg-white border shadow-xl rounded-xl p-2 w-52 space-y-1 transform transition-all">
-                                    <button onClick={() => handleShare('insights')} className="w-full text-left px-3 py-3 text-sm hover:bg-teal-50 rounded-lg font-bold text-teal-700 flex items-center gap-2">
-                                        <i className="fa-solid fa-chart-pie text-lg opacity-80"></i> Share {timeframe} Insights
+                                <div className="absolute bottom-16 right-0 bg-white border shadow-xl rounded-xl p-2 w-56 space-y-1 transform transition-all">
+                                    <button onClick={() => handleShare('insights')} className="w-full text-left px-3 py-3 text-sm hover:bg-teal-50 rounded-lg font-bold text-teal-700 flex items-center gap-2 border-b">
+                                        <i className="fa-brands fa-whatsapp text-lg opacity-80 text-green-500"></i> Share {timeframe} Data
+                                    </button>
+                                    <button onClick={() => handleCopy('insights')} className="w-full text-left px-3 py-3 text-sm hover:bg-teal-50 rounded-lg font-bold text-teal-700 flex items-center gap-2">
+                                        <i className="fa-regular fa-copy text-lg opacity-80 text-gray-500"></i> Copy to Clipboard
                                     </button>
                                 </div>
                             )}
                             <button onClick={() => setShareModalOpen(!shareModalOpen)} className="bg-green-500 hover:bg-green-600 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-2xl transition-transform hover:scale-105">
-                                {shareModalOpen ? <i className="fa-solid fa-xmark"></i> : <i className="fa-brands fa-whatsapp"></i>}
+                                {shareModalOpen ? <i className="fa-solid fa-xmark"></i> : <i className="fa-solid fa-share-nodes"></i>}
                             </button>
                         </div>
                     )}
@@ -1168,7 +1203,7 @@
                             <div className="text-xs bg-white p-3 rounded border border-red-200 break-words text-red-600 shadow-sm">
                                 {this.state.error?.toString()}
                             </div>
-                            <button onClick={() => window.location.reload()} className="mt-6 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow font-bold flex items-center gap-2"><i className="fa-solid fa-rotate-right"></i> Reload App</button>
+                            <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-6 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow font-bold flex items-center gap-2"><i className="fa-solid fa-rotate-right"></i> Reset App & Reload</button>
                         </div>
                     );
                 }
