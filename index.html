@@ -20,7 +20,7 @@
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(10%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
 
     <script>
@@ -38,7 +38,7 @@
         const { useState, useEffect, useMemo } = React;
         const { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = window.Recharts;
 
-        const DEFAULT_OFFLINE_SPENDS = ['Home Loan EMI', 'Monthly Rent', 'Society Maintenance', 'Cook Salary', 'Cleaning Maid Salary', 'Car Wash', 'Electricity Bill', 'Broadband Bill'];
+        const DEFAULT_OFFLINE_SPENDS = ['Home Loan EMI', 'Monthly Rent', 'Society Maintenance', 'Cook Salary', 'Cleaning Maid Salary', 'Nanny Salary', 'Grocery', 'Car Wash', 'Electricity Bill', 'Broadband Bill'];
         const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
         const App = () => {
@@ -49,6 +49,7 @@
             const [fetchedCards, setFetchedCards] = useState([]);
             const [shareModalOpen, setShareModalOpen] = useState(false);
             const [minimizedCharts, setMinimizedCharts] = useState({});
+            const [expandedUser, setExpandedUser] = useState(null);
 
             const [scriptUrl, setScriptUrl] = useState(() => localStorage.getItem('bs_script_url') || '');
             const [user1Name, setUser1Name] = useState(() => localStorage.getItem('bs_user1_name') || 'Amit');
@@ -79,9 +80,9 @@
             const rules = useMemo(() => ({
                 cards: { 'HDFC Swiggy': user2Name, 'Axis Airtel': user1Name },
                 categories: {
-                    'Cook Salary': user1Name, 'Cleaning Maid Salary': user1Name, 'Car Wash': user1Name,
+                    'Cook Salary': user1Name, 'Cleaning Maid Salary': user1Name, 'Nanny Salary': user1Name, 'Car Wash': user1Name,
                     'Electricity Bill': user1Name, 'Broadband Bill': user1Name, 'Monthly Rent': 'Split',
-                    'Society Maintenance': 'Split', 'Home Loan EMI': 'Split'
+                    'Society Maintenance': 'Split', 'Home Loan EMI': 'Split', 'Grocery': 'Split'
                 }
             }), [user1Name, user2Name]);
 
@@ -497,7 +498,6 @@
             const handleShare = (type, customData = null) => {
                 let text = '';
                 
-                // Bulletproof Unicode emojis to prevent file encoding corruption
                 const e = {
                     chart: '\uD83D\uDCCA', cal: '\uD83D\uDCC5', money: '\uD83D\uDCB0', down: '\uD83D\uDCC9', 
                     u1: '\uD83D\uDD35', u2: '\uD83D\uDFE3', sparkle: '\u2728', card: '\uD83D\uDCB3', 
@@ -585,7 +585,130 @@
                 setMinimizedCharts(prev => ({...prev, [id]: !prev[id]}));
             };
 
-            const COLORS = ['#3b82f6', '#a855f7'];
+            const renderUserBreakdown = (userName, cardsData) => {
+                if (!cardsData || cardsData.length === 0) return null;
+                
+                let ccSpends = [];
+                let hhSpends = [];
+                let specificDeds = [];
+
+                let ccTotal = 0;
+                let hhTotal = 0;
+                let dedTotal = 0;
+
+                const isUser1 = userName === user1Name;
+                
+                cardsData.forEach(c => {
+                    const isArray = Array.isArray(c);
+                    const cName = isArray ? c[1] : c.cardName;
+                    const uShare = isArray ? (parseFloat(c[isUser1 ? 3 : 4]) || 0) : (parseFloat(isUser1 ? c.u1Share : c.u2Share) || 0);
+                    
+                    let overrides = [];
+                    if (isArray) {
+                        overrides = parseDeductionsLog(c[5]);
+                    } else {
+                        overrides = c.overrides || [];
+                    }
+
+                    if (cName === 'Offline & Fixed Spends') {
+                        overrides.forEach(ov => {
+                            let itemShare = 0;
+                            if (ov.owner === userName) itemShare = parseFloat(ov.amount);
+                            else if (ov.owner === 'Split') itemShare = parseFloat(ov.amount) / 2;
+                            
+                            if (itemShare > 0) {
+                                hhSpends.push({ desc: ov.desc, amount: itemShare });
+                                hhTotal += itemShare;
+                            }
+                        });
+                    } else if (cName === 'Inter-Personal Adjustments') {
+                        
+                    } else {
+                        let cardBaseShare = uShare;
+                        overrides.forEach(ov => {
+                            if (ov.owner === userName || ov.owner === 'Split') {
+                                const dedAmt = ov.owner === userName ? parseFloat(ov.amount) : parseFloat(ov.amount) / 2;
+                                if (DEFAULT_OFFLINE_SPENDS.includes(ov.desc)) {
+                                    hhSpends.push({ desc: `${ov.desc} (${cName})`, amount: dedAmt });
+                                    hhTotal += dedAmt;
+                                    cardBaseShare -= dedAmt;
+                                } else {
+                                    specificDeds.push({ desc: `${ov.desc} (${cName})`, amount: dedAmt });
+                                    dedTotal += dedAmt;
+                                    cardBaseShare -= dedAmt;
+                                }
+                            }
+                        });
+
+                        if (cardBaseShare > 0) {
+                            ccSpends.push({ desc: cName, amount: cardBaseShare });
+                            ccTotal += cardBaseShare;
+                        }
+                    }
+                });
+
+                return (
+                    <div className="mt-2 mb-4 p-4 bg-white rounded-xl shadow-sm border border-gray-200 text-sm animate-[slideUp_0.2s_ease-out]">
+                        <div className="flex justify-between items-center border-b pb-2 mb-3">
+                            <h4 className="font-bold text-gray-800"><i className="fa-solid fa-chart-pie text-teal-600 mr-2"></i>{userName}'s Breakdown</h4>
+                            <button onClick={() => setExpandedUser(null)} className="text-gray-400 hover:text-red-500 transition-colors w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 hover:bg-red-50"><i className="fa-solid fa-times text-xs"></i></button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {hhSpends.length > 0 && (
+                                <div>
+                                    <div className="flex justify-between font-bold text-teal-700 mb-2 text-[11px] uppercase tracking-widest border-b border-teal-100 pb-1">
+                                        <span>Household Spends</span>
+                                        <span>{formatMoney(hhTotal)}</span>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        {hhSpends.map((item, i) => (
+                                            <div key={i} className="flex justify-between text-gray-600 text-xs pl-1">
+                                                <span className="truncate pr-2"><i className="fa-solid fa-angle-right text-[8px] text-teal-300 mr-1.5"></i>{item.desc}</span>
+                                                <span className="font-medium">{formatMoney(item.amount)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {ccSpends.length > 0 && (
+                                <div>
+                                    <div className="flex justify-between font-bold text-blue-700 mb-2 text-[11px] uppercase tracking-widest border-b border-blue-100 pb-1">
+                                        <span>Credit Card Spends</span>
+                                        <span>{formatMoney(ccTotal)}</span>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        {ccSpends.map((item, i) => (
+                                            <div key={i} className="flex justify-between text-gray-600 text-xs pl-1">
+                                                <span className="truncate pr-2"><i className="fa-regular fa-credit-card text-[9px] text-blue-300 mr-1.5"></i>{item.desc}</span>
+                                                <span className="font-medium">{formatMoney(item.amount)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {specificDeds.length > 0 && (
+                                <div>
+                                    <div className="flex justify-between font-bold text-purple-700 mb-2 text-[11px] uppercase tracking-widest border-b border-purple-100 pb-1">
+                                        <span>Specific Deductions</span>
+                                        <span>{formatMoney(dedTotal)}</span>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        {specificDeds.map((item, i) => (
+                                            <div key={i} className="flex justify-between text-gray-600 text-xs pl-1">
+                                                <span className="truncate pr-2"><i className="fa-solid fa-tag text-[9px] text-purple-300 mr-1.5"></i>{item.desc}</span>
+                                                <span className="font-medium">{formatMoney(item.amount)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
 
             const renderChart = (id, index) => {
                 const isMin = minimizedCharts[id];
@@ -788,16 +911,17 @@
                                                 <p className="text-2xl font-bold text-gray-800">{formatMoney(activeCardsData.summary.total)}</p>
                                             </div>
                                         </div>
-                                        <div className="flex justify-between text-sm bg-gray-50 p-3 rounded-lg border mb-4">
-                                            <div className="text-center w-1/2 border-r">
-                                                <p className="text-xs text-gray-500">{user1Name}'s Share</p>
-                                                <p className="font-bold text-blue-700">{formatMoney(activeCardsData.summary.u1Total)}</p>
-                                            </div>
-                                            <div className="text-center w-1/2">
-                                                <p className="text-xs text-gray-500">{user2Name}'s Share</p>
-                                                <p className="font-bold text-purple-700">{formatMoney(activeCardsData.summary.u2Total)}</p>
-                                            </div>
+                                        <div className="flex gap-2 text-sm mb-4">
+                                            <button onClick={() => setExpandedUser(expandedUser === user1Name ? null : user1Name)} className={`p-3 rounded-lg flex-1 text-center border transition-all ${expandedUser === user1Name ? 'bg-blue-50 border-blue-300 shadow-inner' : 'bg-gray-50 border-gray-200 hover:bg-blue-50'}`}>
+                                                <span className="text-xs text-blue-500 font-semibold block mb-1">{user1Name}</span>
+                                                <span className="font-bold text-base text-blue-800">{formatMoney(activeCardsData.summary.u1Total)}</span>
+                                            </button>
+                                            <button onClick={() => setExpandedUser(expandedUser === user2Name ? null : user2Name)} className={`p-3 rounded-lg flex-1 text-center border transition-all ${expandedUser === user2Name ? 'bg-purple-50 border-purple-300 shadow-inner' : 'bg-gray-50 border-gray-200 hover:bg-purple-50'}`}>
+                                                <span className="text-xs text-purple-500 font-semibold block mb-1">{user2Name}</span>
+                                                <span className="font-bold text-base text-purple-800">{formatMoney(activeCardsData.summary.u2Total)}</span>
+                                            </button>
                                         </div>
+                                        {expandedUser && renderUserBreakdown(expandedUser, activeCardsData.cards)}
                                         <button onClick={syncToSheets} disabled={isSyncing} className="w-full bg-teal-700 text-white p-3 rounded-lg font-bold flex justify-center items-center gap-2 hover:bg-teal-800 shadow-sm">
                                             {isSyncing ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>} Sync Draft to Sheet
                                         </button>
@@ -913,15 +1037,16 @@
                                                         <div className="text-2xl font-bold text-gray-800">{formatMoney(historyMonthData.total)}</div>
                                                     </div>
                                                     <div className="flex gap-2 text-sm mb-4">
-                                                        <div className="bg-blue-50 text-blue-800 p-3 rounded-lg flex-1 text-center border border-blue-100">
+                                                        <button onClick={() => setExpandedUser(expandedUser === user1Name ? null : user1Name)} className={`p-3 rounded-lg flex-1 text-center border transition-all ${expandedUser === user1Name ? 'bg-blue-50 border-blue-300 shadow-inner' : 'bg-blue-50 border-blue-100 hover:bg-blue-100'}`}>
                                                             <span className="text-xs text-blue-500 font-semibold block mb-1">{user1Name}</span>
-                                                            <span className="font-bold text-base">{formatMoney(historyMonthData.u1Total)}</span>
-                                                        </div>
-                                                        <div className="bg-purple-50 text-purple-800 p-3 rounded-lg flex-1 text-center border border-purple-100">
+                                                            <span className="font-bold text-base text-blue-800">{formatMoney(historyMonthData.u1Total)}</span>
+                                                        </button>
+                                                        <button onClick={() => setExpandedUser(expandedUser === user2Name ? null : user2Name)} className={`p-3 rounded-lg flex-1 text-center border transition-all ${expandedUser === user2Name ? 'bg-purple-50 border-purple-300 shadow-inner' : 'bg-purple-50 border-purple-100 hover:bg-purple-100'}`}>
                                                             <span className="text-xs text-purple-500 font-semibold block mb-1">{user2Name}</span>
-                                                            <span className="font-bold text-base">{formatMoney(historyMonthData.u2Total)}</span>
-                                                        </div>
+                                                            <span className="font-bold text-base text-purple-800">{formatMoney(historyMonthData.u2Total)}</span>
+                                                        </button>
                                                     </div>
+                                                    {expandedUser && renderUserBreakdown(expandedUser, historyMonthData.cards)}
                                                 </>
                                             )}
 
