@@ -365,7 +365,7 @@
             const consolidateCards = (cardsArray) => {
                 const map = {};
                 cardsArray.forEach(c => {
-                    if (!c || !c[0] || !c[1]) return; // Safety check
+                    if (!c || !c[0] || !c[1]) return;
                     const key = c[1]; 
                     if(!map[key]) map[key] = { month: toYYYYMM(c[0]), name: c[1], total: 0, u1: 0, u2: 0, overrides: [] };
                     map[key].total += parseFloat(c[2]) || 0;
@@ -595,6 +595,8 @@
                 setMinimizedCharts(prev => ({...prev, [id]: !prev[id]}));
             };
 
+            const COLORS = ['#3b82f6', '#a855f7'];
+
             const renderUserBreakdown = (userName, cardsData) => {
                 if (!cardsData || cardsData.length === 0) return null;
                 
@@ -643,7 +645,6 @@
                                 const dedAmt = ov.owner === userName ? (parseFloat(ov.amount) || 0) : (parseFloat(ov.amount) || 0) / 2;
                                 const ovDesc = ov.desc || '';
                                 
-                                // Smart categorization: if it's grocery/nanny paid via CC, route to Household
                                 const isHousehold = DEFAULT_OFFLINE_SPENDS.some(def => ovDesc.toLowerCase().includes(def.toLowerCase()));
                                 
                                 if (isHousehold) {
