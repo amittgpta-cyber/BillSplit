@@ -34,7 +34,7 @@
 <body class="bg-gray-50 text-gray-800">
     <div id="root"></div>
 
-    <script type="text/babel">
+    <script type="text/babel" data-type="module">
         const { useState, useEffect, useMemo } = React;
         const { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = window.Recharts;
 
@@ -575,7 +575,7 @@
 
                         if (offlineData && offlineData[5] !== 'None') {
                             mText += `${e.line}\n`;
-                            mText += `${e.home} *FIXED & OFFLINE SPENDS*\n\n`;
+                            mText += `${e.home} *FIXED & OFFLINE SPends*\n\n`;
                             mText += `${e.dot} *Total Expenses* \n     ${formatMoney(offlineData[2])}\n`;
                             mText += `     ↳ ${user1Name}: ${formatMoney(offlineData[3])} | ${user2Name}: ${formatMoney(offlineData[4])}\n`;
                             String(offlineData[5]).split(' | ').forEach(ov => { mText += `     ${e.smalldot} _${formatOverrideString(ov)}_\n`; });
