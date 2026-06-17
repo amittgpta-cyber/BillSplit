@@ -6,7 +6,8 @@
     <title>BillSplit Pro</title>
     
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
+    <meta name="theme-color" content="#0f766e" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <link rel="apple-touch-icon" href="icon-192.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,12 +18,12 @@
     <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        @keyframes slideUp { from { transform: translateY(10%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+   <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    @keyframes slideUp { from { transform: translateY(10%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-        /* AMOLED Black Theme Overrides */
+    @media (prefers-color-scheme: dark) {
         body, .bg-gray-50, .bg-gray-100, .bg-white { background-color: #000000 !important; }
         .text-gray-800, .text-gray-700, .text-gray-600 { color: #e5e7eb !important; }
         .text-gray-500, .text-gray-400 { color: #9ca3af !important; }
@@ -44,7 +45,8 @@
         .recharts-text { fill: #9ca3af !important; }
         .recharts-default-tooltip { background-color: #111111 !important; border-color: #333333 !important; }
         .recharts-tooltip-item { color: #ffffff !important; }
-    </style>
+    }
+</style>
 
     <script>
       if ('serviceWorker' in navigator) {
