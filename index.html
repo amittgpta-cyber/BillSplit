@@ -397,9 +397,15 @@
                 return { cards: processed, summary: { total: grandTotal, u1Total: u1Grand, u2Total: u2Grand } };
             }, [formData, offlineSpends, activeBorrows, repayments, rules, user1Name, user2Name, sortedCardList]);
 
+            const activeBorrowsToSubmit = useMemo(() => {
+                return newBorrows.filter(b => parseFloat(b.amount) > 0 && b.desc.trim() !== '');
+            }, [newBorrows]);
+
+            const hasDraftData = activeCardsData.cards.length > 0 || activeBorrowsToSubmit.length > 0;
+
             const syncToSheets = async () => {
                 if (!scriptUrl.trim()) return alert('Please set your Apps Script URL in settings.');
-                if (!activeCardsData.cards.length && !newBorrows.length) return alert('No data to sync.');
+                if (!hasDraftData) return alert('No data to sync.');
                 
                 setIsSyncing(true);
                 const activeRepsToSync = Object.keys(repayments)
@@ -411,7 +417,7 @@
                     month: selectedMonth, 
                     summary: activeCardsData.summary, 
                     cards: activeCardsData.cards,
-                    newBorrows: newBorrows.filter(b => parseFloat(b.amount) > 0 && b.desc.trim() !== ''),
+                    newBorrows: activeBorrowsToSubmit,
                     repayments: activeRepsToSync
                 };
 
@@ -548,7 +554,8 @@
                         name: formatMonthName(month),
                         Total: totalSpend,
                         Household: hhTotal,
-                        Baseline: totalSpend - oneOffAmount,
+                        'Ad-hoc': oneOffAmount,
+                        'Credit Card': Math.max(0, (totalSpend - oneOffAmount) - hhTotal),
                         [user1Name]: dedU1,
                         [user2Name]: dedU2,
                         rawMonthCards: monthCards,
@@ -615,28 +622,49 @@
                     if (!monthData) return;
                     
                     if (type === 'trend') {
-                        title = `${monthData.name} - Spend Summary`;
-                        const adhocSpikes = monthData.Total - monthData.Baseline;
-                        const standardCC = monthData.Baseline - monthData.Household;
-                        
+                        title = `${monthData.name} - Variance Analysis`;
+                        const currentIndex = chartData.findIndex(d => d.name === monthData.name);
+                        const prev = currentIndex > 0 ? chartData[currentIndex - 1] : null;
+
+                        const renderRow = (label, currVal, prevVal) => {
+                            let diffSpan = null;
+                            if (prevVal !== null && prevVal > 0) {
+                                const diff = currVal - prevVal;
+                                const pct = (diff / prevVal) * 100;
+                                const color = diff > 0 ? 'text-red-500' : 'text-green-500';
+                                const icon = diff > 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+                                diffSpan = <span className={`text-[10px] ml-2 ${color}`}><i className={`fa-solid ${icon} text-[8px]`}></i> {Math.abs(pct).toFixed(1)}%</span>;
+                            }
+                            return (
+                                <div className="flex justify-between text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-[#333] pb-1.5 mb-1.5 last:border-0">
+                                    <span><span className="text-gray-300 dark:text-gray-600 mr-1">↳</span> {label}</span> 
+                                    <div className="text-right">
+                                        <span className="font-medium text-gray-800 dark:text-gray-200">{formatMoney(currVal)}</span>
+                                        {diffSpan}
+                                    </div>
+                                </div>
+                            );
+                        };
+
                         content = (
                             <div className="space-y-2 text-sm">
-                                <div className="flex justify-between border-b border-gray-100 dark:border-[#333333] pb-2 mb-2">
+                                <p className="text-[10px] text-gray-500 mb-3 leading-tight border-b border-gray-100 pb-2">Month-over-Month (MoM) variance compared to the previous tracking period.</p>
+                                <div className="flex justify-between border-b border-gray-200 dark:border-[#444] pb-2 mb-2">
                                     <span className="font-bold text-gray-800 dark:text-gray-200">Gross Total:</span> 
-                                    <span className="font-bold text-gray-800 dark:text-gray-200">{formatMoney(monthData.Total)}</span>
+                                    <div className="text-right">
+                                        <span className="font-bold text-gray-800 dark:text-gray-200">{formatMoney(monthData.Total)}</span>
+                                        {prev && prev.Total > 0 && (() => {
+                                            const diff = monthData.Total - prev.Total;
+                                            const pct = (diff / prev.Total) * 100;
+                                            const color = diff > 0 ? 'text-red-500' : 'text-green-500';
+                                            const icon = diff > 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+                                            return <span className={`text-[10px] ml-2 font-bold ${color}`}><i className={`fa-solid ${icon} text-[8px]`}></i> {Math.abs(pct).toFixed(1)}%</span>;
+                                        })()}
+                                    </div>
                                 </div>
-                                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                                    <span><span className="text-gray-300 dark:text-gray-600 mr-1">↳</span> Household</span> 
-                                    <span className="font-medium text-gray-800 dark:text-gray-200">{formatMoney(monthData.Household)}</span>
-                                </div>
-                                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                                    <span><span className="text-gray-300 dark:text-gray-600 mr-1">↳</span> Ad-hoc</span> 
-                                    <span className="font-medium text-red-500">{formatMoney(adhocSpikes)}</span>
-                                </div>
-                                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                                    <span><span className="text-gray-300 dark:text-gray-600 mr-1">↳</span> Credit Card</span> 
-                                    <span className="font-medium text-gray-800 dark:text-gray-200">{formatMoney(standardCC)}</span>
-                                </div>
+                                {renderRow('Household', monthData.Household, prev?.Household)}
+                                {renderRow('Credit Card', monthData['Credit Card'], prev?.['Credit Card'])}
+                                {renderRow('Ad-hoc', monthData['Ad-hoc'], prev?.['Ad-hoc'])}
                             </div>
                         );
                     } else if (type === 'bar') {
@@ -965,7 +993,7 @@
             const renderChart = (id, index) => {
                 const isMin = minimizedCharts[id];
                 let title = "", subtitle = "";
-                if (id === 'trend') { title = "Household Spend Trend"; subtitle = "Total gross vs baseline vs actual household."; }
+                if (id === 'trend') { title = "Household Spend Trend"; subtitle = "Total gross vs ad-hoc vs cc vs actual household."; }
                 if (id === 'pie') { title = `${timeframe} Aggregate Split`; subtitle = "Overall cumulative share breakdown."; }
                 if (id === 'bar') { title = "Ad-hoc Spend Volume"; subtitle = "Individual spikes parsed from ad-hoc spends."; }
 
@@ -1008,7 +1036,8 @@
                                         <Tooltip formatter={(value) => formatMoney(value)} labelStyle={{color: '#333', fontWeight: 'bold', fontSize: '12px'}} itemStyle={{fontSize: '12px'}} />
                                         <Legend wrapperStyle={{fontSize: '11px', paddingTop: '10px'}} />
                                         <Line type="monotone" name="Total Spends" dataKey="Total" stroke="#0f766e" strokeWidth={3} dot={{r: 3, fill: '#0f766e'}} />
-                                        <Line type="monotone" name="Baseline" dataKey="Baseline" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                                        <Line type="monotone" name="Ad-hoc" dataKey="Ad-hoc" stroke="#ef4444" strokeWidth={2} dot={false} />
+                                        <Line type="monotone" name="Credit Card" dataKey="Credit Card" stroke="#3b82f6" strokeWidth={2} dot={false} />
                                         <Line type="monotone" name="Household" dataKey="Household" stroke="#eab308" strokeWidth={3} dot={{r: 3, fill: '#eab308'}} />
                                     </LineChart>
                                 </ResponsiveContainer>
@@ -1191,28 +1220,45 @@
                                     </div>
                                 )}
 
-                                {activeCardsData.cards.length > 0 && (
+                                {hasDraftData && (
                                     <div className="bg-white border-2 border-amber-300 rounded-xl p-4 shadow-md relative">
                                         <div className="absolute top-0 right-0 bg-amber-300 text-amber-900 text-[10px] font-bold px-2 py-1 rounded-bl-lg rounded-tr-xl uppercase tracking-wider">Unsaved Draft</div>
                                         <h3 className="font-bold text-gray-800 border-b pb-2 mb-3 mt-2"><i className="fa-solid fa-pen-nib mr-2"></i>Draft: {formatMonthName(selectedMonth)}</h3>
                                         
-                                        <div className="flex justify-between items-end mb-4">
-                                            <div>
-                                                <p className="text-xs text-gray-500">Total Spends</p>
-                                                <p className="text-2xl font-bold text-gray-800">{formatMoney(activeCardsData.summary.total)}</p>
+                                        {activeCardsData.cards.length > 0 && (
+                                            <>
+                                                <div className="flex justify-between items-end mb-4">
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Total Spends</p>
+                                                        <p className="text-2xl font-bold text-gray-800">{formatMoney(activeCardsData.summary.total)}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2 text-sm mb-2">
+                                                    <button onClick={() => setExpandedUser(expandedUser === user1Name ? null : user1Name)} className={`p-3 rounded-lg flex-1 text-center border transition-all ${expandedUser === user1Name ? 'bg-blue-50 border-blue-300 shadow-inner' : 'bg-gray-50 border-gray-200 hover:bg-blue-50'}`}>
+                                                        <span className="text-xs text-blue-500 font-semibold block mb-1">{user1Name}</span>
+                                                        <span className="font-bold text-base text-blue-800">{formatMoney(activeCardsData.summary.u1Total)}</span>
+                                                    </button>
+                                                    <button onClick={() => setExpandedUser(expandedUser === user2Name ? null : user2Name)} className={`p-3 rounded-lg flex-1 text-center border transition-all ${expandedUser === user2Name ? 'bg-purple-50 border-purple-300 shadow-inner' : 'bg-gray-50 border-gray-200 hover:bg-purple-50'}`}>
+                                                        <span className="text-xs text-purple-500 font-semibold block mb-1">{user2Name}</span>
+                                                        <span className="font-bold text-base text-purple-800">{formatMoney(activeCardsData.summary.u2Total)}</span>
+                                                    </button>
+                                                </div>
+                                                {expandedUser && renderUserBreakdown(expandedUser, activeCardsData.cards)}
+                                            </>
+                                        )}
+
+                                        {activeBorrowsToSubmit.length > 0 && (
+                                            <div className="mt-4 pt-3 border-t border-amber-200">
+                                                <p className="text-xs font-bold text-amber-800 mb-2 uppercase tracking-wide">Pending Borrows to Sync</p>
+                                                {activeBorrowsToSubmit.map((b, i) => (
+                                                    <div key={i} className="flex justify-between text-sm bg-amber-50 p-2 rounded mb-1 border border-amber-100">
+                                                        <span className="text-amber-900">{b.desc} <span className="text-amber-600 text-xs">({b.borrower})</span></span>
+                                                        <span className="font-bold text-amber-900">{formatMoney(b.amount)}</span>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        </div>
-                                        <div className="flex gap-2 text-sm mb-2">
-                                            <button onClick={() => setExpandedUser(expandedUser === user1Name ? null : user1Name)} className={`p-3 rounded-lg flex-1 text-center border transition-all ${expandedUser === user1Name ? 'bg-blue-50 border-blue-300 shadow-inner' : 'bg-gray-50 border-gray-200 hover:bg-blue-50'}`}>
-                                                <span className="text-xs text-blue-500 font-semibold block mb-1">{user1Name}</span>
-                                                <span className="font-bold text-base text-blue-800">{formatMoney(activeCardsData.summary.u1Total)}</span>
-                                            </button>
-                                            <button onClick={() => setExpandedUser(expandedUser === user2Name ? null : user2Name)} className={`p-3 rounded-lg flex-1 text-center border transition-all ${expandedUser === user2Name ? 'bg-purple-50 border-purple-300 shadow-inner' : 'bg-gray-50 border-gray-200 hover:bg-purple-50'}`}>
-                                                <span className="text-xs text-purple-500 font-semibold block mb-1">{user2Name}</span>
-                                                <span className="font-bold text-base text-purple-800">{formatMoney(activeCardsData.summary.u2Total)}</span>
-                                            </button>
-                                        </div>
-                                        {expandedUser && renderUserBreakdown(expandedUser, activeCardsData.cards)}
+                                        )}
+
                                         <button onClick={syncToSheets} disabled={isSyncing} className="mt-4 w-full bg-teal-700 text-white p-3 rounded-lg font-bold flex justify-center items-center gap-2 hover:bg-teal-800 shadow-sm">
                                             {isSyncing ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>} Sync Draft to Sheet
                                         </button>
@@ -1244,7 +1290,7 @@
                                     </div>
                                 )}
 
-                                {!isLoadingInitial && fetchedSummary.length === 0 && !activeCardsData.cards.length && (
+                                {!isLoadingInitial && fetchedSummary.length === 0 && !hasDraftData && (
                                     <div className="text-center py-16 text-gray-400">
                                         <i className="fa-regular fa-folder-open text-5xl mb-4 opacity-50"></i>
                                         <p className="font-semibold text-gray-600 mb-1">No Historical Data</p>
