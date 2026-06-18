@@ -35,7 +35,7 @@
         }
         .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
-        /* Dynamic Tooltip Variables to fix the white flash */
+        /* Dynamic Tooltip Variables */
         :root {
             --tooltip-bg: rgba(255, 255, 255, 0.85);
             --tooltip-text: #1f2937;
@@ -71,14 +71,6 @@
             .recharts-tooltip-item { color: #f3f4f6 !important; }
         }
     </style>
-
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW fail', err));
-        });
-      }
-    </script>
 </head>
 <body class="bg-gray-50 text-gray-800">
     <div id="root"></div>
@@ -426,6 +418,10 @@
             const activeBorrowsToSubmit = useMemo(() => {
                 return newBorrows.filter(b => parseFloat(b.amount) > 0 && b.desc.trim() !== '');
             }, [newBorrows]);
+            
+            const activeFilteredBorrows = useMemo(() => {
+                return activeBorrows.filter(b => b.remainingAmount > 0);
+            }, [activeBorrows]);
 
             const hasDraftData = activeCardsData.cards.length > 0 || activeBorrowsToSubmit.length > 0;
 
@@ -1061,6 +1057,7 @@
                                         <XAxis dataKey="name" tick={{fontSize: 10}} tickMargin={10} axisLine={false} tickLine={false} />
                                         <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10}} axisLine={false} tickLine={false} />
                                         <Tooltip 
+                                            formatter={(value) => formatMoney(value)}
                                             contentStyle={{ backgroundColor: 'var(--tooltip-bg)', color: 'var(--tooltip-text)', borderRadius: '16px', border: '1px solid var(--tooltip-border)', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)', backdropFilter: 'blur(10px)' }}
                                             itemStyle={{ fontSize: '12px', fontWeight: 'bold' }} 
                                             cursor={{ stroke: 'rgba(150, 150, 150, 0.3)', strokeWidth: 1, strokeDasharray: '3 3' }} 
@@ -1083,6 +1080,7 @@
                                             {pieData.map((entry, idx) => <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />)}
                                         </Pie>
                                         <Tooltip 
+                                            formatter={(value) => formatMoney(value)}
                                             contentStyle={{ backgroundColor: 'var(--tooltip-bg)', color: 'var(--tooltip-text)', borderRadius: '16px', border: '1px solid var(--tooltip-border)', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)', backdropFilter: 'blur(10px)' }}
                                             itemStyle={{fontSize: '12px', fontWeight: 'bold'}} 
                                         />
@@ -1103,6 +1101,7 @@
                                         <XAxis dataKey="name" tick={{fontSize: 10}} tickMargin={10} axisLine={false} tickLine={false} />
                                         <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10}} axisLine={false} tickLine={false} />
                                         <Tooltip 
+                                            formatter={(value) => formatMoney(value)}
                                             contentStyle={{ backgroundColor: 'var(--tooltip-bg)', color: 'var(--tooltip-text)', borderRadius: '16px', border: '1px solid var(--tooltip-border)', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)', backdropFilter: 'blur(10px)' }}
                                             itemStyle={{fontSize: '12px', fontWeight: 'bold'}} 
                                             cursor={{fill: 'rgba(150, 150, 150, 0.1)'}} 
@@ -1213,11 +1212,11 @@
                                     </div>
                                 </div>
 
-                                {activeBorrows && activeBorrows.length > 0 && (
+                                {activeFilteredBorrows.length > 0 && (
                                     <div className="mt-8">
-                                        <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3 border-b pb-1">Borrow Ledger</h2>
+                                        <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3 border-b pb-1">Settle Borrow</h2>
                                         <div className="space-y-3">
-                                            {activeBorrows.map(b => (
+                                            {activeFilteredBorrows.map(b => (
                                                 <div key={b.id} className={`p-4 border rounded-[20px] transition-all ${repayments[b.id]?.active ? 'bg-teal-50 border-teal-300 shadow-sm' : 'bg-gray-50 border-gray-200'}`}>
                                                     <div className="flex justify-between items-start mb-1">
                                                         <div>
