@@ -566,20 +566,16 @@
                 return { month: formatMonthName(historyMonth), total, u1Total, u2Total, cards: cardsForMonth };
             }, [historyMonth, fetchedSummary, fetchedCards, searchQuery]);
 
-            const handleChartClick = (type, data) => {
-                if (!data) return;
-                
+            const handleChartClick = (type, data = null) => {
                 let title = "";
                 let content = null;
 
                 if (type === 'trend' || type === 'bar') {
-                    if (!data.activePayload || data.activePayload.length === 0) return;
-                    const monthData = data.activePayload[0].payload;
+                    const monthData = data?.activePayload?.[0]?.payload || chartData[chartData.length - 1];
+                    if (!monthData) return;
                     
                     if (type === 'trend') {
                         title = `${monthData.name} - Spend Summary`;
-                        const cards = monthData.rawMonthCards || [];
-                        const sortedCards = [...cards].sort((a,b) => parseFloat(b[2]) - parseFloat(a[2])).slice(0,3);
                         
                         content = (
                             <div className="space-y-3 text-sm">
@@ -594,15 +590,6 @@
                                 <div className="flex justify-between border-b border-gray-100 dark:border-[#333333] pb-1">
                                     <span className="text-gray-500">Ad-hoc Spikes:</span> 
                                     <span className="font-bold text-red-500">{formatMoney(monthData.Total - monthData.Baseline)}</span>
-                                </div>
-                                <div className="mt-3">
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Top 3 Spends (TL;DR)</p>
-                                    {sortedCards.map((c, i) => (
-                                        <div key={i} className="flex justify-between text-xs text-gray-700 dark:text-gray-300 mb-1">
-                                            <span className="truncate pr-2"><i className="fa-solid fa-caret-right text-teal-500 mr-1"></i> {c[1]}</span>
-                                            <span className="font-semibold">{formatMoney(c[2])}</span>
-                                        </div>
-                                    ))}
                                 </div>
                             </div>
                         );
@@ -646,23 +633,28 @@
                         );
                     }
                 } else if (type === 'pie') {
-                    const userName = data.name;
-                    title = `${userName}'s Aggregate Share`;
+                    title = `Aggregate Share Summary`;
                     const totalTracked = pieData.reduce((acc, curr) => acc + curr.value, 0);
-                    const percent = ((data.value / totalTracked) * 100).toFixed(1);
                     
                     content = (
-                        <div className="space-y-3 text-sm">
-                            <div className="flex justify-between items-center bg-gray-50 dark:bg-[#111111] p-3 rounded-lg border dark:border-[#333333]">
-                                <span className="text-gray-500 text-xs uppercase font-bold tracking-wider">All-Time Split</span>
-                                <span className="font-black text-xl text-gray-800 dark:text-gray-200">{percent}%</span>
-                            </div>
-                            <div className="flex justify-between border-b border-gray-100 dark:border-[#333333] pb-1">
-                                <span className="text-gray-500">Cumulative Value:</span> 
-                                <span className="font-bold">{formatMoney(data.value)}</span>
-                            </div>
+                        <div className="space-y-4 text-sm">
+                            {pieData.map((d, i) => {
+                                const percent = totalTracked > 0 ? ((d.value / totalTracked) * 100).toFixed(1) : 0;
+                                return (
+                                    <div key={i} className="space-y-2 border-b border-gray-100 dark:border-[#333333] pb-3 last:border-0">
+                                        <div className="flex justify-between items-center bg-gray-50 dark:bg-[#111111] p-3 rounded-lg border dark:border-[#333333]">
+                                            <span className="text-gray-500 text-xs uppercase font-bold tracking-wider">{d.name}'s Split</span>
+                                            <span className="font-black text-xl text-gray-800 dark:text-gray-200">{percent}%</span>
+                                        </div>
+                                        <div className="flex justify-between px-1">
+                                            <span className="text-gray-500">Cumulative Value:</span> 
+                                            <span className="font-bold">{formatMoney(d.value)}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                             <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed bg-gray-50 dark:bg-[#111111] p-2 rounded">
-                                This represents {userName}'s total cumulative financial responsibility across all recorded months, combining standard splits and individual ad-hoc overrides.
+                                This represents the total cumulative financial responsibility across all recorded months, combining standard splits and individual ad-hoc overrides.
                             </div>
                         </div>
                     );
@@ -907,9 +899,9 @@
             const renderChart = (id, index) => {
                 const isMin = minimizedCharts[id];
                 let title = "", subtitle = "";
-                if (id === 'trend') { title = "Household Spend Trend"; subtitle = "Click lines for monthly top spend summary."; }
-                if (id === 'pie') { title = `${timeframe} Aggregate Split`; subtitle = "Click slices for specific all-time summary."; }
-                if (id === 'bar') { title = "Ad-hoc Spend Volume"; subtitle = "Click bars for monthly user-specific spikes."; }
+                if (id === 'trend') { title = "Household Spend Trend"; subtitle = "Total gross vs baseline vs actual household."; }
+                if (id === 'pie') { title = `${timeframe} Aggregate Split`; subtitle = "Overall cumulative share breakdown."; }
+                if (id === 'bar') { title = "Ad-hoc Spend Volume"; subtitle = "Individual spikes parsed from ad-hoc spends."; }
 
                 return (
                     <div key={id} draggable onDragStart={(e) => handleDragStart(e, id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, id)} className="bg-white border rounded-xl p-4 shadow-sm mb-6 relative cursor-move hover:shadow-md transition-shadow pt-12">
@@ -928,13 +920,22 @@
                         
                         <div className="pr-2">
                             <p className="text-sm font-bold text-gray-700 mb-1">{title}</p>
-                            {!isMin && <p className="text-[10px] text-teal-500 font-bold mb-3 leading-tight"><i className="fa-solid fa-hand-pointer mr-1"></i>{subtitle}</p>}
+                            {!isMin && <p className="text-[10px] text-gray-500 mb-3 leading-tight">{subtitle}</p>}
                         </div>
+
+                        {!isMin && (
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); handleChartClick(id); }} 
+                                className="absolute bottom-3 right-3 bg-gray-50 hover:bg-gray-200 dark:bg-[#111111] dark:hover:bg-[#222222] text-gray-500 dark:text-gray-400 w-6 h-6 rounded-full border border-gray-200 dark:border-[#333333] shadow-sm flex items-center justify-center transition-colors z-20 text-[10px]"
+                            >
+                                <i className="fa-solid fa-question"></i>
+                            </button>
+                        )}
 
                         {!isMin && id === 'trend' && (
                             <div className="h-64 mt-4">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart onClick={(e) => handleChartClick('trend', e)} style={{cursor: 'pointer'}} data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                                    <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                                         <XAxis dataKey="name" tick={{fontSize: 10}} tickMargin={10} axisLine={false} tickLine={false} />
                                         <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10}} axisLine={false} tickLine={false} />
@@ -951,8 +952,8 @@
                         {!isMin && id === 'pie' && (
                             <div className="h-48 relative mt-4">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart style={{cursor: 'pointer'}}>
-                                        <Pie data={pieData} onClick={(data) => handleChartClick('pie', data)} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={2} dataKey="value" stroke="none">
+                                    <PieChart>
+                                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={2} dataKey="value" stroke="none">
                                             {pieData.map((entry, idx) => <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />)}
                                         </Pie>
                                         <Tooltip formatter={(value) => formatMoney(value)} itemStyle={{fontSize: '12px'}} />
@@ -968,7 +969,7 @@
                         {!isMin && id === 'bar' && (
                             <div className="h-48 mt-4">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart onClick={(e) => handleChartClick('bar', e)} style={{cursor: 'pointer'}} data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                                    <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                                         <XAxis dataKey="name" tick={{fontSize: 10}} tickMargin={10} axisLine={false} tickLine={false} />
                                         <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10}} axisLine={false} tickLine={false} />
@@ -1319,12 +1320,12 @@
 
                     {popupData && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-[slideUp_0.2s_ease-out]" onClick={() => setPopupData(null)}>
-                            <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden relative" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center p-4 border-b border-gray-100">
-                                    <h3 className="font-bold text-gray-800"><i className="fa-solid fa-circle-info text-teal-500 mr-2"></i>{popupData.title}</h3>
-                                    <button onClick={() => setPopupData(null)} className="text-gray-400 hover:text-red-500 bg-gray-100 hover:bg-red-50 w-6 h-6 flex items-center justify-center rounded-full transition-colors"><i className="fa-solid fa-xmark text-sm"></i></button>
+                            <div className="bg-white dark:bg-[#111111] border border-gray-200 dark:border-[#333333] rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden relative" onClick={e => e.stopPropagation()}>
+                                <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-[#333333]">
+                                    <h3 className="font-bold text-gray-800 dark:text-gray-200"><i className="fa-solid fa-circle-info text-teal-500 mr-2"></i>{popupData.title}</h3>
+                                    <button onClick={() => setPopupData(null)} className="text-gray-400 hover:text-red-500 bg-gray-100 dark:bg-[#222222] hover:bg-red-50 dark:hover:bg-red-900/30 w-6 h-6 flex items-center justify-center rounded-full transition-colors"><i className="fa-solid fa-xmark text-sm"></i></button>
                                 </div>
-                                <div className="p-5 text-gray-700">
+                                <div className="p-5 text-gray-700 dark:text-gray-300">
                                     {popupData.content}
                                 </div>
                             </div>
