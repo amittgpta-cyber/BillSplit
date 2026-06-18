@@ -685,7 +685,7 @@
                     insights += `⏳ _${timeframe.toUpperCase()}_\n`;
                     insights += `${e.line}\n\n`;
                     insights += `${e.cal} *Months Tracked:* ${chartData.length}\n\n`;
-                    insights += `${e.money} *Household Spend:* ${formatMoney(totalTracked)}\n`;
+                    insights += `${e.money} *Total Spends:* ${formatMoney(totalTracked)}\n`;
                     insights += `${e.down} *Monthly Average:* ${formatMoney(avgSpend)}\n\n`;
                     insights += `${e.u1} *${user1Name}'s Share:* ${formatMoney(pieData[0].value)}\n`;
                     insights += `${e.u2} *${user2Name}'s Share:* ${formatMoney(pieData[1].value)}\n\n`;
@@ -699,7 +699,7 @@
                     let mText = `${e.chart} *${label.toUpperCase()} SUMMARY*\n`;
                     mText += `${e.cal} *MONTH:* ${dataObj.month.toUpperCase()}\n`;
                     mText += `${e.line}\n\n`;
-                    mText += `${e.money} *Total Household Spend:* ${formatMoney(dataObj.total)}\n\n`;
+                    mText += `${e.money} *Total Spends:* ${formatMoney(dataObj.total)}\n\n`;
                     mText += `${e.u1} *${user1Name}'s Share:* ${formatMoney(dataObj.u1Total)}\n`;
                     mText += `${e.u2} *${user2Name}'s Share:* ${formatMoney(dataObj.u2Total)}\n\n`;
 
@@ -884,7 +884,7 @@
                             {specificDeds.length > 0 && (
                                 <div>
                                     <div className="flex justify-between font-bold text-purple-700 mb-2 text-[11px] uppercase tracking-widest border-b border-purple-100 pb-1">
-                                        <span>Specific Deductions</span>
+                                        <span>Ad-hoc Spends</span>
                                         <span>{formatMoney(dedTotal)}</span>
                                     </div>
                                     <div className="space-y-1.5">
@@ -1109,7 +1109,7 @@
                                         
                                         <div className="flex justify-between items-end mb-4">
                                             <div>
-                                                <p className="text-xs text-gray-500">Household Spend</p>
+                                                <p className="text-xs text-gray-500">Total Spends</p>
                                                 <p className="text-2xl font-bold text-gray-800">{formatMoney(activeCardsData.summary.total)}</p>
                                             </div>
                                         </div>
@@ -1238,7 +1238,7 @@
                                             {!searchQuery.trim() && (
                                                 <>
                                                     <div className="flex justify-between items-center mb-4">
-                                                        <div className="text-gray-500 text-sm">Household Spend</div>
+                                                        <div className="text-gray-500 text-sm">Total Spends</div>
                                                         <div className="text-2xl font-bold text-gray-800">{formatMoney(historyMonthData.total)}</div>
                                                     </div>
                                                     <div className="flex gap-2 text-sm mb-2">
