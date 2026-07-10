@@ -104,6 +104,7 @@
         const DEFAULT_OFFLINE_SPENDS = ['Home Loan EMI', 'Monthly Rent', 'Society Maintenance', 'Cook Salary', 'Cleaning Maid Salary', 'Nanny Salary', 'Grocery', 'Car Wash', 'Electricity Bill', 'Broadband Bill'];
         const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
+        // Securely obfuscated backend endpoint
         const OBFUSCATED_URL = "aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J3N20wazI3b0NfQkozRnZaNkotUGUtWE1pV3hwX2tlVXJWRnNZVl9oeUNwdGx1dFVlVTFmVFRlbzVTdG1uZXF0UWUvZXhlYw==";
 
         const App = () => {
@@ -281,12 +282,13 @@
                     if (newOffline.length === 0) newOffline = initOfflineSpends();
                     setOfflineSpends(newOffline);
                     setRepayments(newReps);
+                    setIsEditMode(false); 
                 } else {
                     setOfflineSpends(initOfflineSpends());
                     setRepayments({});
+                    setIsEditMode(true); 
                 }
                 setNewBorrows([]);
-                setIsEditMode(false); 
             }, [selectedMonth, sortedCardList, fetchedCards, activeBorrows]);
 
             const fetchAllData = async () => {
@@ -718,13 +720,61 @@
                 if (!chartData || chartData.length < 2) return null;
                 const curr = chartData[chartData.length - 1];
                 const prev = chartData[chartData.length - 2];
+
+                const getItems = (monthCards) => {
+                    const items = {};
+                    (monthCards || []).forEach(c => {
+                        const cName = c[1];
+                        const cTotal = parseFloat(c[2]) || 0;
+                        const ovs = c[5] && c[5] !== 'None' ? parseDeductionsLog(c[5]) : [];
+                        let overrideSum = 0;
+                        
+                        ovs.forEach(ov => {
+                            const amt = parseFloat(ov.amount) || 0;
+                            if (amt > 0) {
+                                items[ov.desc] = (items[ov.desc] || 0) + amt;
+                                overrideSum += amt;
+                            }
+                        });
+                        
+                        const cardBase = cTotal - overrideSum;
+                        if (cardBase > 0 && cName !== 'Offline & Fixed Spends' && cName !== 'Settle Borrow') {
+                            items[`${cName} (Base)`] = (items[`${cName} (Base)`] || 0) + cardBase;
+                        }
+                    });
+                    return items;
+                };
+
+                const currItems = getItems(curr.rawMonthCards);
+                const prevItems = getItems(prev.rawMonthCards);
+                const deltas = [];
+
+                const allKeys = new Set([...Object.keys(currItems), ...Object.keys(prevItems)]);
+                allKeys.forEach(key => {
+                    const cVal = currItems[key] || 0;
+                    const pVal = prevItems[key] || 0;
+                    const diff = cVal - pVal;
+                    
+                    if (Math.abs(diff) > 5) {
+                        deltas.push({ 
+                            desc: key, 
+                            diff, 
+                            isNew: pVal === 0, 
+                            isRemoved: cVal === 0 
+                        });
+                    }
+                });
+
+                deltas.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+
                 return {
                     month: curr.name, 
                     prevMonth: prev.name,
                     total: curr.Total - prev.Total,
                     hh: curr.Household - prev.Household,
                     cc: curr['Credit Card'] - prev['Credit Card'],
-                    adhoc: curr['Ad-hoc'] - prev['Ad-hoc']
+                    adhoc: curr['Ad-hoc'] - prev['Ad-hoc'],
+                    topDrivers: deltas.slice(0, 6)
                 };
             }, [chartData]);
 
@@ -1509,7 +1559,7 @@
                                                     </span>
                                                 </h4>
                                                 
-                                                <div className="space-y-3 relative z-10">
+                                                <div className="space-y-3 relative z-10 mb-5">
                                                     {[
                                                         {label: 'Gross Total Spends', val: varianceData.total, icon: 'fa-money-bill-wave'}, 
                                                         {label: 'Credit Card Overheads', val: varianceData.cc, icon: 'fa-credit-card'},
@@ -1525,6 +1575,28 @@
                                                         </div>
                                                     ))}
                                                 </div>
+
+                                                {/* Primary Drivers Breakdown */}
+                                                {varianceData.topDrivers && varianceData.topDrivers.length > 0 && (
+                                                    <div className="pt-4 border-t border-gray-100 dark:border-[#333]">
+                                                        <h5 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Primary Drivers</h5>
+                                                        <div className="space-y-2.5">
+                                                            {varianceData.topDrivers.map((d, i) => (
+                                                                <div key={i} className="flex justify-between items-center text-xs bg-gray-50/50 dark:bg-[#121212]/50 p-2 rounded-xl border border-gray-100 dark:border-[#252525]">
+                                                                    <span className="text-gray-700 dark:text-gray-300 font-medium truncate pr-3 flex items-center gap-2">
+                                                                        {d.diff > 0 ? <span className="w-1.5 h-1.5 rounded-full bg-red-500 block"></span> : <span className="w-1.5 h-1.5 rounded-full bg-green-500 block"></span>}
+                                                                        {d.desc}
+                                                                        {d.isNew && <span className="text-[8px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-black uppercase">New</span>}
+                                                                        {d.isRemoved && <span className="text-[8px] bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded font-black uppercase">Ended</span>}
+                                                                    </span>
+                                                                    <span className={`font-black ${d.diff > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                                                        {d.diff > 0 ? '+' : '-'}{formatMoney(Math.abs(d.diff))}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
