@@ -7,7 +7,7 @@
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#f9fafb" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
     <link rel="apple-touch-icon" href="icon-192.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -26,7 +26,6 @@
         }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         
-        /* Android 17 / Material 3 Fluid Spring Animations */
         @keyframes springUp {
             0% { opacity: 0; transform: translateY(40px) scale(0.95); }
             100% { opacity: 1; transform: translateY(0) scale(1); }
@@ -45,47 +44,53 @@
         }
         .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
-        /* Dynamic Tooltip Variables */
         :root {
-            --tooltip-bg: rgba(255, 255, 255, 0.9);
+            --tooltip-bg: rgba(255, 255, 255, 0.95);
             --tooltip-text: #1f2937;
             --tooltip-border: rgba(200, 200, 200, 0.2);
             --surface-tonal: #ffffff;
         }
 
+        /* Material 3 Dark Mode Overhaul */
         @media (prefers-color-scheme: dark) {
-            body { background-color: #000000 !important; }
-            .bg-gray-50 { background-color: #0a0a0a !important; }
-            .bg-gray-100 { background-color: #000000 !important; }
-            .bg-white { background-color: #111111 !important; }
+            body { background-color: #121212 !important; }
+            .bg-gray-50, .bg-gray-100 { background-color: #121212 !important; }
+            .bg-white { background-color: #1e1e1e !important; }
             
-            .text-gray-800, .text-gray-700 { color: #e5e7eb !important; }
-            .text-gray-600, .text-gray-500 { color: #9ca3af !important; }
+            .text-gray-800, .text-gray-700, .text-gray-900 { color: #e3e3e3 !important; }
+            .text-gray-600, .text-gray-500 { color: #a0a0a0 !important; }
+            .text-gray-400 { color: #737373 !important; }
             
-            .border, .border-gray-200, .border-gray-100, .border-b, .border-t { border-color: #222222 !important; }
-            input, select { background-color: #1a1a1a !important; color: #ffffff !important; border-color: #333 !important; color-scheme: dark; }
+            .border, .border-gray-200, .border-gray-100, .border-b, .border-t, .border-l-2, .border-l-4 { border-color: rgba(255,255,255,0.05) !important; }
+            input, select { background-color: #252525 !important; color: #ffffff !important; border-color: transparent !important; color-scheme: dark; }
+            input:disabled, select:disabled { background-color: transparent !important; opacity: 1 !important; color: #a0a0a0 !important; -webkit-text-fill-color: #a0a0a0; }
             
-            /* Tonal Surfaces for Material 3 Dark Mode */
-            .bg-teal-50 { background-color: #022c22 !important; border-color: transparent !important; }
-            .text-teal-800 { color: #5eead4 !important; }
-            .bg-blue-50 { background-color: #082f49 !important; border-color: transparent !important; }
-            .text-blue-800, .text-blue-700 { color: #93c5fd !important; }
-            .bg-purple-50 { background-color: #3b0764 !important; border-color: transparent !important; }
-            .text-purple-800, .text-purple-700 { color: #d8b4fe !important; }
-            .bg-amber-300 { background-color: #78350f !important; color: #fde68a !important; }
+            /* Desaturated Tonal Surfaces */
+            .bg-teal-50 { background-color: rgba(20, 83, 73, 0.15) !important; border-color: rgba(20, 83, 73, 0.3) !important; }
+            .text-teal-800, .text-teal-700, .text-teal-600 { color: #5eead4 !important; }
+            .bg-teal-800, .bg-teal-700 { background-color: #0f766e !important; color: #fff !important; }
             
-            header, .absolute.bottom-16.right-0.bg-white { background-color: #000000 !important; border-color: #1f2937 !important; }
+            .bg-blue-50 { background-color: rgba(30, 58, 138, 0.15) !important; border-color: rgba(30, 58, 138, 0.3) !important; }
+            .text-blue-800, .text-blue-700, .text-blue-500 { color: #93c5fd !important; }
             
-            .recharts-cartesian-grid-horizontal line { stroke: #222 !important; }
-            .recharts-text { fill: #9ca3af !important; }
+            .bg-purple-50 { background-color: rgba(88, 28, 135, 0.15) !important; border-color: rgba(88, 28, 135, 0.3) !important; }
+            .text-purple-800, .text-purple-700, .text-purple-500 { color: #d8b4fe !important; }
+            
+            .bg-amber-50, .bg-amber-300 { background-color: rgba(120, 53, 15, 0.2) !important; border-color: rgba(120, 53, 15, 0.3) !important; }
+            .text-amber-900, .text-amber-800, .text-amber-700 { color: #fde68a !important; }
+            
+            header, .absolute.bottom-16.right-0.bg-white, nav { background-color: rgba(30, 30, 30, 0.85) !important; border-color: rgba(255,255,255,0.05) !important; }
+            
+            .recharts-cartesian-grid-horizontal line { stroke: rgba(255,255,255,0.05) !important; }
+            .recharts-text { fill: #a0a0a0 !important; }
             
             :root {
-                --tooltip-bg: rgba(20, 20, 20, 0.9);
-                --tooltip-text: #f3f4f6;
-                --tooltip-border: rgba(80, 80, 80, 0.4);
-                --surface-tonal: #111111;
+                --tooltip-bg: rgba(30, 30, 30, 0.95);
+                --tooltip-text: #e3e3e3;
+                --tooltip-border: rgba(255, 255, 255, 0.1);
+                --surface-tonal: #1e1e1e;
             }
-            .recharts-tooltip-item { color: #f3f4f6 !important; }
+            .recharts-tooltip-item { color: #e3e3e3 !important; }
         }
     </style>
 </head>
@@ -99,7 +104,14 @@
         const DEFAULT_OFFLINE_SPENDS = ['Home Loan EMI', 'Monthly Rent', 'Society Maintenance', 'Cook Salary', 'Cleaning Maid Salary', 'Nanny Salary', 'Grocery', 'Car Wash', 'Electricity Bill', 'Broadband Bill'];
         const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
+        const OBFUSCATED_URL = "aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J3N20wazI3b0NfQkozRnZaNkotUGUtWE1pV3hwX2tlVXJWRnNZVl9oeUNwdGx1dFVlVTFmVFRlbzVTdG1uZXF0UWUvZXhlYw==";
+
         const App = () => {
+            const scriptUrl = useMemo(() => {
+                try { return atob(OBFUSCATED_URL); } 
+                catch { return ""; }
+            }, []);
+
             const [view, setView] = useState('dashboard'); 
             const [isSyncing, setIsSyncing] = useState(false);
             const [isLoadingInitial, setIsLoadingInitial] = useState(false);
@@ -111,7 +123,6 @@
             const [expandedUser, setExpandedUser] = useState(null);
             const [popupData, setPopupData] = useState(null);
             
-            // UI States
             const [historyHubOpen, setHistoryHubOpen] = useState(false);
             const [isNavVisible, setIsNavVisible] = useState(true);
             const [showHistory, setShowHistory] = useState(false);
@@ -129,15 +140,12 @@
                 catch { return {}; }
             });
 
-            const [scriptUrl, setScriptUrl] = useState(() => localStorage.getItem('bs_script_url') || '');
             const [user1Name, setUser1Name] = useState(() => localStorage.getItem('bs_user1_name') || 'Amit');
             const [user2Name, setUser2Name] = useState(() => localStorage.getItem('bs_user2_name') || 'Alka');
             
-            const getCurrentMonth = () => {
-                const d = new Date();
-                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            };
-            const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
+            const [selectedMonth, setSelectedMonth] = useState('');
+            const [isEditMode, setIsEditMode] = useState(false);
+            const [isWideTimeline, setIsWideTimeline] = useState(false);
 
             const [cardList, setCardList] = useState([]);
             const [newCardName, setNewCardName] = useState('');
@@ -163,7 +171,6 @@
                 }
             }), [user1Name, user2Name]);
 
-            // Scroll Listener for Auto-Hiding Nav
             useEffect(() => {
                 let lastScrollY = window.scrollY;
                 const handleScroll = () => {
@@ -198,7 +205,6 @@
                 if (scriptUrl) fetchAllData();
             }, [scriptUrl]);
 
-            // Phase 1 - History Log Auto-Targeting: Auto-select highest month chronologically
             useEffect(() => {
                 if (fetchedSummary && fetchedSummary.length > 0 && !historyMonth) {
                     const allMonths = fetchedSummary.filter(s => s && s[0]).map(s => toYYYYMM(s[0])).sort();
@@ -234,8 +240,8 @@
                 }).filter(Boolean);
             };
 
-            // Phase 1 - Bi-Directional Entry Editing (State Rehydration)
             useEffect(() => {
+                if (!selectedMonth) return;
                 const monthCards = fetchedCards.filter(c => c && c[0] && toYYYYMM(c[0]) === selectedMonth);
                 
                 setFormData(prev => {
@@ -279,7 +285,8 @@
                     setOfflineSpends(initOfflineSpends());
                     setRepayments({});
                 }
-                setNewBorrows([]); // Reset fresh borrows on month toggle
+                setNewBorrows([]);
+                setIsEditMode(false); 
             }, [selectedMonth, sortedCardList, fetchedCards, activeBorrows]);
 
             const fetchAllData = async () => {
@@ -296,7 +303,7 @@
                         if (result.data.activeBorrows) setActiveBorrows(result.data.activeBorrows);
                     }
                 } catch (error) {
-                    alert("Could not load data. Ensure your URL is correct and deployed securely.");
+                    console.error("Could not load data. Ensure your URL is correct and deployed securely.", error);
                 } finally {
                     setIsLoadingInitial(false);
                 }
@@ -314,7 +321,6 @@
                     
                     setCardList(prev => [...prev, newCardName.trim()]);
                     setNewCardName('');
-                    alert('Card added! Syncing list...');
                     setTimeout(fetchAllData, 1000); 
                 } catch (e) {
                     alert('Failed to add card to sheet.');
@@ -353,11 +359,6 @@
                     setNewBorrows([]);
                     setRepayments({});
                 }
-            };
-
-            const submitForCalculation = () => {
-                setView('dashboard');
-                window.scrollTo(0, 0);
             };
 
             const formatMoney = (amount) => {
@@ -498,7 +499,6 @@
                 return newBorrows.filter(b => parseFloat(b.amount) > 0 && b.desc.trim() !== '');
             }, [newBorrows]);
             
-            // Phase 1 - Ledger Partitioning
             const activeFilteredBorrows = useMemo(() => {
                 return activeBorrows.filter(b => b.remainingAmount > 0);
             }, [activeBorrows]);
@@ -507,10 +507,10 @@
                 return activeBorrows.filter(b => b.remainingAmount <= 0);
             }, [activeBorrows]);
 
-            const hasDraftData = activeCardsData.cards.length > 0 || activeBorrowsToSubmit.length > 0;
+            const hasDraftData = isEditMode && (activeCardsData.cards.length > 0 || activeBorrowsToSubmit.length > 0);
 
             const syncToSheets = async () => {
-                if (!scriptUrl.trim()) return alert('Please set your Apps Script URL in settings.');
+                if (!scriptUrl.trim()) return alert('Please set your Apps Script URL in settings or ensure obfuscation is correct.');
                 if (!hasDraftData) return alert('No data to sync.');
                 
                 setIsSyncing(true);
@@ -535,6 +535,7 @@
                     });
                     
                     alert(`Successfully synced ${selectedMonth} to Sheets!`);
+                    setIsEditMode(false);
                     setTimeout(fetchAllData, 1000);
                 } catch (error) {
                     alert('Error syncing to Sheet. Check network connection.');
@@ -713,6 +714,20 @@
                 return { month: formatMonthName(historyMonth), total, u1Total, u2Total, cards: cardsForMonth };
             }, [historyMonth, fetchedSummary, fetchedCards, searchQuery]);
 
+            const varianceData = useMemo(() => {
+                if (!chartData || chartData.length < 2) return null;
+                const curr = chartData[chartData.length - 1];
+                const prev = chartData[chartData.length - 2];
+                return {
+                    month: curr.name, 
+                    prevMonth: prev.name,
+                    total: curr.Total - prev.Total,
+                    hh: curr.Household - prev.Household,
+                    cc: curr['Credit Card'] - prev['Credit Card'],
+                    adhoc: curr['Ad-hoc'] - prev['Ad-hoc']
+                };
+            }, [chartData]);
+
             const handleChartClick = (type, data = null) => {
                 let title = "";
                 let content = null;
@@ -816,7 +831,7 @@
                                 const percent = totalTracked > 0 ? ((d.value / totalTracked) * 100).toFixed(1) : 0;
                                 return (
                                     <div key={i} className="space-y-2 border-b border-gray-100 dark:border-[#333333] pb-3 last:border-0">
-                                        <div className="flex justify-between items-center bg-gray-50 dark:bg-[#111111] p-3 rounded-[20px] border dark:border-[#333333]">
+                                        <div className="flex justify-between items-center bg-gray-50 dark:bg-[#1e1e1e] p-3 rounded-[20px] border dark:border-[#333333]">
                                             <span className="text-gray-500 text-xs uppercase font-bold tracking-wider">{d.name}'s Split</span>
                                             <span className="font-black text-xl text-gray-800 dark:text-gray-200">{percent}%</span>
                                         </div>
@@ -827,7 +842,7 @@
                                     </div>
                                 );
                             })}
-                            <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed bg-gray-50 dark:bg-[#111111] p-3 rounded-[16px]">
+                            <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed bg-gray-50 dark:bg-[#1e1e1e] p-3 rounded-[16px]">
                                 This represents the total cumulative financial responsibility across all recorded months, combining standard splits and individual ad-hoc overrides.
                             </div>
                         </div>
@@ -836,9 +851,10 @@
                 setPopupData({ title, content });
             };
 
-            // Phase 1 - Targeted Export Share Engine
-            const handleShareScope = (scope) => {
-                const sourceCards = hasDraftData ? activeCardsData.cards : (lastMonthData ? lastMonthData.cards : []);
+            const handleShareScope = (scope, customData = null) => {
+                const isHistoryShare = customData !== null;
+                const sourceCards = isHistoryShare ? customData.cards : ((isEditMode && hasDraftData) ? activeCardsData.cards : (lastMonthData ? lastMonthData.cards : []));
+                
                 if (sourceCards.length === 0) {
                     alert("No data available to share for this scope.");
                     return;
@@ -846,7 +862,6 @@
 
                 let text = ``;
                 if (scope === user1Name || scope === user2Name) {
-                    text += `📊 *${scope}'s Breakdown*\n━━━━━━━━━━━━━━━━━━━━━\n\n`;
                     let hhSpends = [], ccSpends = [], adhocSpends = [];
                     let hhTotal = 0, ccTotal = 0, adhocTotal = 0;
                     
@@ -875,50 +890,100 @@
                             if (cardBase > 0) { ccSpends.push({desc: cName, amt: cardBase}); ccTotal += cardBase; }
                         }
                     });
-
-                    text += `*HOUSEHOLD SPENDS*    ${formatMoney(hhTotal)}\n`;
-                    hhSpends.forEach(item => text += `  > ${item.desc}   ${formatMoney(item.amt)}\n`);
-                    text += `\n*CREDIT CARD SPENDS*  ${formatMoney(ccTotal)}\n`;
-                    ccSpends.forEach(item => text += `  💳 ${item.desc}   ${formatMoney(item.amt)}\n`);
+                    
+                    const scopeTotal = hhTotal + ccTotal + adhocTotal;
+                    text += `📊 *${scope}'s Breakdown*\n💰 *TOTAL SPEND:* ${formatMoney(scopeTotal)}\n━━━━━━━━━━━━━━━━━━━━━\n\n`;
+                    if(hhSpends.length > 0) {
+                        text += `*HOUSEHOLD SPENDS* ${formatMoney(hhTotal)}\n`;
+                        hhSpends.forEach(item => text += `  > ${item.desc}   ${formatMoney(item.amt)}\n`);
+                    }
+                    if(ccSpends.length > 0) {
+                        text += `\n*CREDIT CARD SPENDS* ${formatMoney(ccTotal)}\n`;
+                        ccSpends.forEach(item => text += `  💳 ${item.desc}   ${formatMoney(item.amt)}\n`);
+                    }
                     if(adhocSpends.length > 0) {
-                        text += `\n*AD-HOC SPENDS*       ${formatMoney(adhocTotal)}\n`;
+                        text += `\n*AD-HOC SPENDS* ${formatMoney(adhocTotal)}\n`;
                         adhocSpends.forEach(item => text += `  🏷️ ${item.desc}   ${formatMoney(item.amt)}\n`);
                     }
                 } else if (scope === 'Cards') {
-                    text += `💳 *Credit Card Spends*\n━━━━━━━━━━━━━━━━━━━━━\n\n`;
+                    let scopeTotal = 0;
+                    sourceCards.forEach(c => { 
+                        const cName = Array.isArray(c) ? c[1] : c.cardName; 
+                        const cTotal = parseFloat(Array.isArray(c) ? c[2] : c.total) || 0; 
+                        if (cName !== 'Offline & Fixed Spends' && cName !== 'Settle Borrow') scopeTotal += cTotal; 
+                    });
+                    
+                    text += `💳 *Credit Card Spends*\n💰 *TOTAL SPEND:* ${formatMoney(scopeTotal)}\n━━━━━━━━━━━━━━━━━━━━━\n\n`;
                     sourceCards.forEach(c => {
-                        const isArray = Array.isArray(c);
-                        const cName = (isArray ? c[1] : c.cardName) || 'Unknown';
-                        const cTotal = isArray ? c[2] : c.total;
+                        const isArray = Array.isArray(c), cName = (isArray ? c[1] : c.cardName) || 'Unknown', cTotal = parseFloat(isArray ? c[2] : c.total) || 0;
                         if (cName !== 'Offline & Fixed Spends' && cName !== 'Settle Borrow' && cTotal > 0) {
-                            text += `*${cName}*  ${formatMoney(cTotal)}\n`;
-                            let overrides = isArray ? parseDeductionsLog(c[5]) : (c.overrides || []);
-                            overrides.forEach(ov => text += `  > ${ov.desc} (${ov.owner})  ${formatMoney(ov.amount)}\n`);
+                            text += `*${cName}* ${formatMoney(cTotal)}\n`;
+                            (isArray ? parseDeductionsLog(c[5]) : (c.overrides || [])).forEach(ov => text += `  > ${ov.desc} (${ov.owner})  ${formatMoney(ov.amount)}\n`);
                             text += `\n`;
                         }
                     });
                 } else if (scope === 'Household') {
-                    text += `🏠 *Household Baseline*\n━━━━━━━━━━━━━━━━━━━━━\n\n`;
+                    let scopeTotal = 0;
                     sourceCards.forEach(c => {
-                        const isArray = Array.isArray(c);
-                        const cName = (isArray ? c[1] : c.cardName) || 'Unknown';
-                        let overrides = isArray ? parseDeductionsLog(c[5]) : (c.overrides || []);
-                        overrides.forEach(ov => {
-                            const isHh = DEFAULT_OFFLINE_SPENDS.some(def => ov.desc.toLowerCase().includes(def.toLowerCase()));
-                            if (isHh || cName === 'Offline & Fixed Spends') {
-                                text += `  > ${ov.desc}   ${formatMoney(ov.amount)}\n`;
-                            }
+                        const isArray = Array.isArray(c), cName = (isArray ? c[1] : c.cardName) || 'Unknown';
+                        (isArray ? parseDeductionsLog(c[5]) : (c.overrides || [])).forEach(ov => {
+                            if (DEFAULT_OFFLINE_SPENDS.some(def => ov.desc.toLowerCase().includes(def.toLowerCase())) || cName === 'Offline & Fixed Spends') scopeTotal += parseFloat(ov.amount) || 0;
+                        });
+                    });
+
+                    text += `🏠 *Household Baseline*\n💰 *TOTAL SPEND:* ${formatMoney(scopeTotal)}\n━━━━━━━━━━━━━━━━━━━━━\n\n`;
+                    sourceCards.forEach(c => {
+                        const isArray = Array.isArray(c), cName = (isArray ? c[1] : c.cardName) || 'Unknown';
+                        (isArray ? parseDeductionsLog(c[5]) : (c.overrides || [])).forEach(ov => {
+                            if (DEFAULT_OFFLINE_SPENDS.some(def => ov.desc.toLowerCase().includes(def.toLowerCase())) || cName === 'Offline & Fixed Spends') text += `  > ${ov.desc}   ${formatMoney(ov.amount)}\n`;
                         });
                     });
                 } else {
-                    // Complete Summary Logic (Default All)
-                    const mTotal = hasDraftData ? activeCardsData.summary.total : lastMonthData.total;
-                    const mU1 = hasDraftData ? activeCardsData.summary.u1Total : lastMonthData.u1Total;
-                    const mU2 = hasDraftData ? activeCardsData.summary.u2Total : lastMonthData.u2Total;
-                    text += `📄 *COMPLETE SUMMARY*\n━━━━━━━━━━━━━━━━━━━━━\n\n`;
-                    text += `💰 *Gross Total:* ${formatMoney(mTotal)}\n`;
+                    // All / Complete
+                    const mTotal = isHistoryShare ? customData.total : ((isEditMode && hasDraftData) ? activeCardsData.summary.total : lastMonthData.total);
+                    const mU1 = isHistoryShare ? customData.u1Total : ((isEditMode && hasDraftData) ? activeCardsData.summary.u1Total : lastMonthData.u1Total);
+                    const mU2 = isHistoryShare ? customData.u2Total : ((isEditMode && hasDraftData) ? activeCardsData.summary.u2Total : lastMonthData.u2Total);
+                    const mName = isHistoryShare ? customData.month.toUpperCase() : (hasDraftData ? formatMonthName(selectedMonth).toUpperCase() : "LATEST");
+                    
+                    text += `📄 *${mName} SUMMARY*\n💰 *TOTAL SPEND:* ${formatMoney(mTotal)}\n━━━━━━━━━━━━━━━━━━━━━\n\n`;
                     text += `🔵 *${user1Name}:* ${formatMoney(mU1)}\n`;
                     text += `🟣 *${user2Name}:* ${formatMoney(mU2)}\n\n`;
+
+                    const ccData = sourceCards.filter(c => { const n = Array.isArray(c)?c[1]:c.cardName; return n !== 'Offline & Fixed Spends' && n !== 'Settle Borrow'; });
+                    const offlineData = sourceCards.find(c => { const n = Array.isArray(c)?c[1]:c.cardName; return n === 'Offline & Fixed Spends'; });
+                    const loanData = sourceCards.find(c => { const n = Array.isArray(c)?c[1]:c.cardName; return n === 'Settle Borrow'; });
+
+                    if (ccData.length > 0) {
+                        text += `━━━━━━━━━━━━━━━━━━━━━\n💳 *CREDIT CARDS*\n\n`;
+                        ccData.forEach(c => {
+                            const isArr = Array.isArray(c);
+                            text += `🔹 *${isArr?c[1]:c.cardName}* \n     ${formatMoney(isArr?c[2]:c.total)}\n`;
+                            text += `     ↳ ${user1Name}: ${formatMoney(isArr?c[3]:c.u1Share)} | ${user2Name}: ${formatMoney(isArr?c[4]:c.u2Share)}\n`;
+                            const ovs = isArr ? parseDeductionsLog(c[5]) : (c.overrides || []);
+                            ovs.forEach(ov => { text += `     📌 _${ov.desc} - ${formatMoney(ov.amount)} (${ov.owner})_\n`; });
+                            text += `\n`;
+                        });
+                    }
+                    if (offlineData) {
+                        const isArr = Array.isArray(offlineData);
+                        const ovs = isArr ? parseDeductionsLog(offlineData[5]) : (offlineData.overrides || []);
+                        if (ovs.length > 0) {
+                            text += `━━━━━━━━━━━━━━━━━━━━━\n🏠 *FIXED & OFFLINE SPENDS*\n\n`;
+                            text += `🔹 *Total Expenses* \n     ${formatMoney(isArr?offlineData[2]:offlineData.total)}\n`;
+                            text += `     ↳ ${user1Name}: ${formatMoney(isArr?offlineData[3]:offlineData.u1Share)} | ${user2Name}: ${formatMoney(isArr?offlineData[4]:offlineData.u2Share)}\n`;
+                            ovs.forEach(ov => { text += `     ▫️ _${ov.desc} - ${formatMoney(ov.amount)} (${ov.owner})_\n`; });
+                            text += `\n`;
+                        }
+                    }
+                    if (loanData) {
+                        const isArr = Array.isArray(loanData);
+                        const ovs = isArr ? parseDeductionsLog(loanData[5]) : (loanData.overrides || []);
+                        if (ovs.length > 0) {
+                            text += `━━━━━━━━━━━━━━━━━━━━━\n🔄 *BORROW REPAYMENTS*\n\n`;
+                            ovs.forEach(ov => { text += `     ▫️ _${ov.desc} - ${formatMoney(ov.amount)} (${ov.owner})_\n`; });
+                            text += `\n`;
+                        }
+                    }
                 }
                 text += `\n✨ _Generated via BillSplit_`;
                 window.open(`https://wa.me/?text=${encodeURIComponent(text.trim())}`);
@@ -1023,24 +1088,24 @@
                 });
 
                 return (
-                    <div className="mt-4 mb-2 p-5 bg-white rounded-[24px] shadow-sm border border-gray-100 spring-up">
-                        <div className="flex justify-between items-center border-b border-gray-100 pb-3 mb-4">
-                            <h4 className="font-black text-gray-800"><i className="fa-solid fa-chart-pie text-teal-600 mr-2"></i>{userName}'s Breakdown</h4>
-                            <button onClick={() => setExpandedUser(null)} className="text-gray-400 hover:text-red-500 transition-all active:scale-[0.97] w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 hover:bg-red-50"><i className="fa-solid fa-times text-sm"></i></button>
+                    <div className="mt-4 mb-2 p-5 bg-white dark:bg-[#1e1e1e] rounded-[24px] shadow-sm border border-gray-100 dark:border-[#333] spring-up">
+                        <div className="flex justify-between items-center border-b border-gray-100 dark:border-[#333] pb-3 mb-4">
+                            <h4 className="font-black text-gray-800 dark:text-gray-100"><i className="fa-solid fa-chart-pie text-teal-600 dark:text-teal-400 mr-2"></i>{userName}'s Breakdown</h4>
+                            <button onClick={() => setExpandedUser(null)} className="text-gray-400 hover:text-red-500 transition-all active:scale-[0.97] w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-[#252525] hover:bg-red-50 dark:hover:bg-red-900/30"><i className="fa-solid fa-times text-sm"></i></button>
                         </div>
 
                         <div className="space-y-5">
                             {hhSpends.length > 0 && (
                                 <div>
-                                    <div className="flex justify-between font-bold text-teal-700 mb-2 text-[11px] uppercase tracking-widest border-b border-teal-50 pb-1.5">
+                                    <div className="flex justify-between font-bold text-teal-700 dark:text-teal-400 mb-2 text-[11px] uppercase tracking-widest border-b border-teal-50 dark:border-teal-900/30 pb-1.5">
                                         <span>Household Spends</span>
                                         <span>{formatMoney(hhTotal)}</span>
                                     </div>
                                     <div className="space-y-2">
                                         {hhSpends.map((item, i) => (
-                                            <div key={i} className="flex justify-between text-gray-600 text-xs pl-1">
-                                                <span className="truncate pr-2"><i className="fa-solid fa-angle-right text-[8px] text-teal-300 mr-2"></i>{item.desc}</span>
-                                                <span className="font-bold text-gray-700">{formatMoney(item.amount)}</span>
+                                            <div key={i} className="flex justify-between text-gray-600 dark:text-gray-400 text-xs pl-1">
+                                                <span className="truncate pr-2"><i className="fa-solid fa-angle-right text-[8px] text-teal-300 dark:text-teal-700 mr-2"></i>{item.desc}</span>
+                                                <span className="font-bold text-gray-700 dark:text-gray-300">{formatMoney(item.amount)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -1049,15 +1114,15 @@
 
                             {ccSpends.length > 0 && (
                                 <div>
-                                    <div className="flex justify-between font-bold text-blue-700 mb-2 text-[11px] uppercase tracking-widest border-b border-blue-50 pb-1.5">
+                                    <div className="flex justify-between font-bold text-blue-700 dark:text-blue-400 mb-2 text-[11px] uppercase tracking-widest border-b border-blue-50 dark:border-blue-900/30 pb-1.5">
                                         <span>Credit Card Spends</span>
                                         <span>{formatMoney(ccTotal)}</span>
                                     </div>
                                     <div className="space-y-2">
                                         {ccSpends.map((item, i) => (
-                                            <div key={i} className="flex justify-between text-gray-600 text-xs pl-1">
-                                                <span className="truncate pr-2"><i className="fa-regular fa-credit-card text-[9px] text-blue-300 mr-2"></i>{item.desc}</span>
-                                                <span className="font-bold text-gray-700">{formatMoney(item.amount)}</span>
+                                            <div key={i} className="flex justify-between text-gray-600 dark:text-gray-400 text-xs pl-1">
+                                                <span className="truncate pr-2"><i className="fa-regular fa-credit-card text-[9px] text-blue-300 dark:text-blue-700 mr-2"></i>{item.desc}</span>
+                                                <span className="font-bold text-gray-700 dark:text-gray-300">{formatMoney(item.amount)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -1066,15 +1131,15 @@
 
                             {specificDeds.length > 0 && (
                                 <div>
-                                    <div className="flex justify-between font-bold text-purple-700 mb-2 text-[11px] uppercase tracking-widest border-b border-purple-50 pb-1.5">
+                                    <div className="flex justify-between font-bold text-purple-700 dark:text-purple-400 mb-2 text-[11px] uppercase tracking-widest border-b border-purple-50 dark:border-purple-900/30 pb-1.5">
                                         <span>Ad-hoc Spends</span>
                                         <span>{formatMoney(dedTotal)}</span>
                                     </div>
                                     <div className="space-y-2">
                                         {specificDeds.map((item, i) => (
-                                            <div key={i} className="flex justify-between text-gray-600 text-xs pl-1">
-                                                <span className="truncate pr-2"><i className="fa-solid fa-tag text-[9px] text-purple-300 mr-2"></i>{item.desc}</span>
-                                                <span className="font-bold text-gray-700">{formatMoney(item.amount)}</span>
+                                            <div key={i} className="flex justify-between text-gray-600 dark:text-gray-400 text-xs pl-1">
+                                                <span className="truncate pr-2"><i className="fa-solid fa-tag text-[9px] text-purple-300 dark:text-purple-700 mr-2"></i>{item.desc}</span>
+                                                <span className="font-bold text-gray-700 dark:text-gray-300">{formatMoney(item.amount)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -1093,97 +1158,99 @@
                 if (id === 'bar') { title = "Ad-hoc Spend Volume"; subtitle = "Individual spikes parsed from ad-hoc spends."; }
 
                 return (
-                    <div key={id} draggable onDragStart={(e) => handleDragStart(e, id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, id)} className="bg-[var(--surface-tonal)] border border-gray-100 rounded-[32px] p-5 shadow-sm mb-6 relative cursor-move hover:shadow-md transition-shadow pt-14">
+                    <div key={id} draggable onDragStart={(e) => handleDragStart(e, id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, id)} className="bg-[var(--surface-tonal)] border border-gray-100 dark:border-[#333] rounded-[32px] p-5 shadow-sm mb-6 relative cursor-move hover:shadow-md transition-shadow pt-14">
                         
                         <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
                             {!isMin && (
-                                <div className="flex bg-gray-50 dark:bg-[#1a1a1a] rounded-full overflow-hidden border border-gray-100 dark:border-[#333] transition-all">
+                                <div className="flex bg-gray-50 dark:bg-[#252525] rounded-full overflow-hidden border border-gray-100 dark:border-[#333] transition-all">
                                     <button onClick={() => moveChart(index, 'up')} disabled={index === 0} className="px-3 py-2 hover:bg-gray-200 dark:hover:bg-[#333] active:bg-gray-300 hover:text-teal-600 disabled:opacity-30 border-r border-gray-100 dark:border-[#333] transition-colors"><i className="fa-solid fa-arrow-up text-xs"></i></button>
                                     <button onClick={() => moveChart(index, 'down')} disabled={index === chartOrder.length - 1} className="px-3 py-2 hover:bg-gray-200 dark:hover:bg-[#333] active:bg-gray-300 hover:text-teal-600 disabled:opacity-30 transition-colors"><i className="fa-solid fa-arrow-down text-xs"></i></button>
                                 </div>
                             )}
-                            <button onClick={(e) => toggleChart(e, id)} className={`flex items-center gap-1 px-4 py-2 rounded-full text-xs font-bold transition-all active:scale-[0.95] ${isMin ? 'bg-teal-50 text-teal-700 border border-teal-100' : 'bg-gray-50 text-gray-500 border border-gray-100 hover:bg-gray-100 dark:bg-[#1a1a1a] dark:border-[#333] dark:hover:bg-[#222]'}`}>
+                            <button onClick={(e) => toggleChart(e, id)} className={`flex items-center gap-1 px-4 py-2 rounded-full text-xs font-bold transition-all active:scale-[0.95] ${isMin ? 'bg-teal-50 text-teal-700 border border-teal-100 dark:border-teal-900/50' : 'bg-gray-50 text-gray-500 border border-gray-100 hover:bg-gray-100 dark:bg-[#252525] dark:border-[#333] dark:hover:bg-[#333]'}`}>
                                 {isMin ? <><i className="fa-solid fa-expand"></i> Expand</> : <><i className="fa-solid fa-compress"></i></>}
                             </button>
                         </div>
                         
                         <div className="pr-2">
-                            <p className="text-base font-black text-gray-800 mb-1">{title}</p>
+                            <p className="text-base font-black text-gray-800 dark:text-gray-100 mb-1">{title}</p>
                             {!isMin && <p className="text-[11px] font-medium text-gray-500 mb-4 tracking-wide">{subtitle}</p>}
                         </div>
 
                         {!isMin && (
                             <button 
                                 onClick={(e) => { e.stopPropagation(); handleChartClick(id); }} 
-                                className="absolute bottom-4 right-4 bg-gray-50 hover:bg-gray-200 active:scale-[0.95] dark:bg-[#1a1a1a] dark:hover:bg-[#222] text-gray-500 w-8 h-8 rounded-full border border-gray-100 dark:border-[#333] shadow-sm flex items-center justify-center transition-all z-20 text-[10px]"
+                                className="absolute bottom-4 right-4 bg-gray-50 hover:bg-gray-200 active:scale-[0.95] dark:bg-[#252525] dark:hover:bg-[#333] text-gray-500 w-8 h-8 rounded-full border border-gray-100 dark:border-[#444] shadow-sm flex items-center justify-center transition-all z-20 text-[10px]"
                             >
                                 <i className="fa-solid fa-question"></i>
                             </button>
                         )}
 
-                        {!isMin && id === 'trend' && (
-                            <div className="h-64 mt-4 fade-in">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                                        <XAxis dataKey="name" tick={{fontSize: 10, fontWeight: 'bold'}} tickMargin={10} axisLine={false} tickLine={false} />
-                                        <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10, fontWeight: 'bold'}} axisLine={false} tickLine={false} />
-                                        <Tooltip 
-                                            formatter={(value) => formatMoney(value)}
-                                            contentStyle={{ backgroundColor: 'var(--tooltip-bg)', color: 'var(--tooltip-text)', borderRadius: '20px', border: '1px solid var(--tooltip-border)', boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.15)', backdropFilter: 'blur(12px)', padding: '12px' }}
-                                            itemStyle={{ fontSize: '12px', fontWeight: 'bold' }} 
-                                            cursor={{ stroke: 'rgba(150, 150, 150, 0.3)', strokeWidth: 1, strokeDasharray: '3 3' }} 
-                                        />
-                                        <Legend wrapperStyle={{fontSize: '11px', paddingTop: '10px', fontWeight: 'bold'}} />
-                                        <Line type="monotone" name="Total Spends" dataKey="Total" stroke="#0f766e" strokeWidth={3} dot={{r: 4, fill: '#0f766e', strokeWidth: 2, stroke: '#fff'}} />
-                                        <Line type="monotone" name="Credit Card" dataKey="Credit Card" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                                        <Line type="monotone" name="Household" dataKey="Household" stroke="#eab308" strokeWidth={3} dot={{r: 4, fill: '#eab308', strokeWidth: 2, stroke: '#fff'}} />
-                                        <Line type="monotone" name="Ad-hoc" dataKey="Ad-hoc" stroke="#ef4444" strokeWidth={2} dot={false} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-                        )}
+                        {/* Wide Timeline Wrap */}
+                        <div className={`overflow-x-auto hide-scrollbar ${!isMin ? 'mt-4 fade-in' : 'hidden'}`}>
+                            <div className={isWideTimeline && id !== 'pie' ? 'w-[1000px] h-64' : 'w-full h-64'}>
+                                {id === 'trend' && (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(150,150,150,0.2)" />
+                                            <XAxis dataKey="name" tick={{fontSize: 10, fontWeight: 'bold'}} tickMargin={10} axisLine={false} tickLine={false} />
+                                            <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10, fontWeight: 'bold'}} axisLine={false} tickLine={false} />
+                                            <Tooltip 
+                                                formatter={(value) => formatMoney(value)}
+                                                contentStyle={{ backgroundColor: 'var(--tooltip-bg)', color: 'var(--tooltip-text)', borderRadius: '20px', border: '1px solid var(--tooltip-border)', boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.15)', backdropFilter: 'blur(12px)', padding: '12px' }}
+                                                itemStyle={{ fontSize: '12px', fontWeight: 'bold' }} 
+                                                cursor={{ stroke: 'rgba(150, 150, 150, 0.3)', strokeWidth: 1, strokeDasharray: '3 3' }} 
+                                            />
+                                            <Legend wrapperStyle={{fontSize: '11px', paddingTop: '10px', fontWeight: 'bold'}} />
+                                            <Line type="monotone" name="Total Spends" dataKey="Total" stroke="#0f766e" strokeWidth={3} dot={{r: 4, fill: '#0f766e', strokeWidth: 2, stroke: '#fff'}} />
+                                            <Line type="monotone" name="Credit Card" dataKey="Credit Card" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                                            <Line type="monotone" name="Household" dataKey="Household" stroke="#eab308" strokeWidth={3} dot={{r: 4, fill: '#eab308', strokeWidth: 2, stroke: '#fff'}} />
+                                            <Line type="monotone" name="Ad-hoc" dataKey="Ad-hoc" stroke="#ef4444" strokeWidth={2} dot={false} />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                )}
 
-                        {!isMin && id === 'pie' && (
-                            <div className="h-56 relative mt-4 fade-in">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={3} dataKey="value" stroke="none">
-                                            {pieData.map((entry, idx) => <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />)}
-                                        </Pie>
-                                        <Tooltip 
-                                            formatter={(value) => formatMoney(value)}
-                                            contentStyle={{ backgroundColor: 'var(--tooltip-bg)', color: 'var(--tooltip-text)', borderRadius: '20px', border: '1px solid var(--tooltip-border)', boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.15)', backdropFilter: 'blur(12px)', padding: '12px' }}
-                                            itemStyle={{fontSize: '12px', fontWeight: 'bold'}} 
-                                        />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
-                                    <div className="flex items-center gap-1.5 text-[11px] font-black text-blue-600 tracking-wide"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>{user1Name}</div>
-                                    <div className="flex items-center gap-1.5 text-[11px] font-black text-purple-600 tracking-wide mt-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>{user2Name}</div>
-                                </div>
-                            </div>
-                        )}
+                                {id === 'pie' && (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={3} dataKey="value" stroke="none">
+                                                {pieData.map((entry, idx) => <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />)}
+                                            </Pie>
+                                            <Tooltip 
+                                                formatter={(value) => formatMoney(value)}
+                                                contentStyle={{ backgroundColor: 'var(--tooltip-bg)', color: 'var(--tooltip-text)', borderRadius: '20px', border: '1px solid var(--tooltip-border)', boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.15)', backdropFilter: 'blur(12px)', padding: '12px' }}
+                                                itemStyle={{fontSize: '12px', fontWeight: 'bold'}} 
+                                            />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                )}
 
-                        {!isMin && id === 'bar' && (
-                            <div className="h-48 mt-4 fade-in">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                                        <XAxis dataKey="name" tick={{fontSize: 10, fontWeight: 'bold'}} tickMargin={10} axisLine={false} tickLine={false} />
-                                        <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10, fontWeight: 'bold'}} axisLine={false} tickLine={false} />
-                                        <Tooltip 
-                                            formatter={(value) => formatMoney(value)}
-                                            contentStyle={{ backgroundColor: 'var(--tooltip-bg)', color: 'var(--tooltip-text)', borderRadius: '20px', border: '1px solid var(--tooltip-border)', boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.15)', backdropFilter: 'blur(12px)', padding: '12px' }}
-                                            itemStyle={{fontSize: '12px', fontWeight: 'bold'}} 
-                                            cursor={{fill: 'rgba(150, 150, 150, 0.1)', radius: 8}} 
-                                        />
-                                        <Bar dataKey={user1Name} stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} maxBarSize={30} />
-                                        <Bar dataKey={user2Name} stackId="a" fill="#a855f7" radius={[6, 6, 0, 0]} maxBarSize={30} />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                                {id === 'bar' && (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(150,150,150,0.2)" />
+                                            <XAxis dataKey="name" tick={{fontSize: 10, fontWeight: 'bold'}} tickMargin={10} axisLine={false} tickLine={false} />
+                                            <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10, fontWeight: 'bold'}} axisLine={false} tickLine={false} />
+                                            <Tooltip 
+                                                formatter={(value) => formatMoney(value)}
+                                                contentStyle={{ backgroundColor: 'var(--tooltip-bg)', color: 'var(--tooltip-text)', borderRadius: '20px', border: '1px solid var(--tooltip-border)', boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.15)', backdropFilter: 'blur(12px)', padding: '12px' }}
+                                                itemStyle={{fontSize: '12px', fontWeight: 'bold'}} 
+                                                cursor={{fill: 'rgba(150, 150, 150, 0.1)', radius: 8}} 
+                                            />
+                                            <Bar dataKey={user1Name} stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} maxBarSize={30} />
+                                            <Bar dataKey={user2Name} stackId="a" fill="#a855f7" radius={[6, 6, 0, 0]} maxBarSize={30} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                )}
+                                
+                                {id === 'pie' && !isMin && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
+                                        <div className="flex items-center gap-1.5 text-[11px] font-black text-blue-600 dark:text-blue-400 tracking-wide"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>{user1Name}</div>
+                                        <div className="flex items-center gap-1.5 text-[11px] font-black text-purple-600 dark:text-purple-400 tracking-wide mt-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>{user2Name}</div>
+                                    </div>
+                                )}
                             </div>
-                        )}
+                        </div>
                     </div>
                 );
             };
@@ -1192,7 +1259,7 @@
                 <div className="max-w-md mx-auto bg-gray-50 min-h-screen shadow-2xl pb-32 relative overflow-hidden">
                     <header className="bg-white/80 backdrop-blur-md text-gray-800 p-5 sticky top-0 z-30 flex justify-between items-center transition-colors">
                         <h1 className="text-2xl font-black tracking-tight"><i className="fa-solid fa-file-invoice-dollar mr-2 text-teal-600"></i>BillSplit</h1>
-                        <button onClick={() => setView('settings')} className="bg-gray-100 hover:bg-gray-200 text-gray-600 w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-[0.90] active:rotate-45">
+                        <button onClick={() => setView('settings')} className="bg-gray-100 dark:bg-[#252525] hover:bg-gray-200 dark:hover:bg-[#333] text-gray-600 dark:text-gray-300 w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-[0.90] active:rotate-45">
                             <i className="fa-solid fa-gear text-lg"></i>
                         </button>
                     </header>
@@ -1200,122 +1267,157 @@
                     <main className="p-4 fade-in relative z-10">
                         {view === 'entry' && (
                             <div className="space-y-6">
-                                <div className="bg-teal-50 border border-teal-100 p-5 rounded-[28px] flex justify-between items-center shadow-sm">
-                                    <span className="font-bold text-teal-800 text-lg">Billing Month:</span>
-                                    <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="border-none bg-white py-2 px-3 rounded-xl text-base font-black text-gray-800 shadow-sm outline-none focus:ring-2 focus:ring-teal-400 transition-shadow" />
+                                {/* Clean Canvas Dropdown */}
+                                <div className="bg-teal-50 border border-teal-100 p-5 rounded-[28px] flex flex-col justify-center items-center shadow-sm text-center transition-all">
+                                    <span className="font-bold text-teal-800 text-xs uppercase tracking-widest mb-3">Select a Billing Cycle</span>
+                                    <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="w-full text-center border-none bg-white py-3 px-4 rounded-[16px] text-lg font-black text-gray-800 shadow-sm outline-none focus:ring-2 focus:ring-teal-400 transition-shadow cursor-pointer" />
                                 </div>
 
-                                <div>
-                                    <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 ml-2">Credit Card Bills</h2>
-                                    {sortedCardList.length === 0 && <p className="text-sm text-gray-400 italic ml-2">No cards available. Check Settings.</p>}
-                                    <div className="space-y-4">
-                                        {sortedCardList.map(card => formData[card] && (
-                                            <div key={card} className={`border rounded-[32px] p-5 transition-all duration-300 ${formData[card].total ? 'bg-[var(--surface-tonal)] shadow-md border-teal-200' : 'bg-white border-gray-100'}`}>
-                                                <div className="flex justify-between items-center">
-                                                    <label className={`text-base font-black tracking-tight ${formData[card].total ? 'text-teal-800' : 'text-gray-700'}`}>{card}</label>
-                                                    <input type="number" placeholder="₹ 0.00" value={formData[card].total} onChange={e => handleTotalChange(card, e.target.value)} className="w-1/3 border-none bg-gray-50 py-2 px-3 rounded-2xl text-right font-black text-lg text-gray-800 outline-none focus:ring-2 focus:ring-teal-400 transition-shadow" />
-                                                </div>
+                                {!selectedMonth ? (
+                                    <div className="text-center py-20 text-gray-400 fade-in">
+                                        <div className="w-24 h-24 mx-auto bg-white dark:bg-[#1e1e1e] shadow-sm border border-gray-100 dark:border-[#333] rounded-full flex items-center justify-center mb-6">
+                                            <i className="fa-regular fa-calendar-check text-4xl text-gray-300 dark:text-gray-600"></i>
+                                        </div>
+                                        <p className="font-black text-xl tracking-tight mb-2 text-gray-600 dark:text-gray-300">No Cycle Selected</p>
+                                        <p className="text-sm font-medium px-4">Choose a month above to view, audit, or edit your financial logs.</p>
+                                    </div>
+                                ) : (
+                                    <div className="fade-in space-y-6">
+                                        {/* Lock/Edit Toggle Bar */}
+                                        <div className="flex justify-between items-center bg-white dark:bg-[#1e1e1e] p-4 rounded-[20px] shadow-sm border border-gray-100 dark:border-[#333]">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-3 h-3 rounded-full ${isEditMode ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-pulse' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
+                                                <span className="font-bold text-sm text-gray-600 dark:text-gray-300">{isEditMode ? 'Edit Mode Active' : 'Read-Only Mode'}</span>
+                                            </div>
+                                            <button onClick={() => setIsEditMode(!isEditMode)} className={`px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${isEditMode ? 'bg-gray-100 dark:bg-[#252525] text-gray-600 dark:text-gray-400' : 'bg-teal-600 text-white shadow-md hover:bg-teal-700'}`}>
+                                                {isEditMode ? 'Lock' : 'Edit Month'}
+                                            </button>
+                                        </div>
 
-                                                {formData[card].total && (
-                                                    <div className="mt-4 pt-4 border-t border-gray-100/50 spring-up">
-                                                        {formData[card].overrides.map(ov => (
-                                                            <div key={ov.id} className="flex gap-2 mb-3 relative bg-gray-50/50 p-2 rounded-2xl border border-gray-100">
-                                                                <button onClick={() => removeOverride(card, ov.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 border border-red-200 rounded-full w-6 h-6 flex items-center justify-center shadow-sm active:scale-90 transition-transform"><i className="fa-solid fa-xmark text-xs"></i></button>
-                                                                <input type="text" placeholder="Desc..." value={ov.desc} onChange={e => updateOverride(card, ov.id, 'desc', e.target.value)} className="w-2/5 text-sm p-2 rounded-xl border-none bg-white shadow-sm outline-none focus:ring-2 focus:ring-teal-300" />
-                                                                <input type="number" placeholder="₹" value={ov.amount} onChange={e => updateOverride(card, ov.id, 'amount', e.target.value)} className="w-1/4 text-sm p-2 rounded-xl border-none bg-white shadow-sm font-bold outline-none focus:ring-2 focus:ring-teal-300" />
-                                                                <select value={ov.owner} onChange={e => updateOverride(card, ov.id, 'owner', e.target.value)} className="w-1/3 text-xs p-2 rounded-xl border-none bg-white shadow-sm font-bold outline-none focus:ring-2 focus:ring-teal-300">
+                                        {/* Form Data - Controlled by isEditMode */}
+                                        <div className={`transition-opacity duration-300 ${!isEditMode ? 'opacity-90' : ''}`}>
+                                            <div>
+                                                <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 ml-2">Credit Card Bills</h2>
+                                                {sortedCardList.length === 0 && <p className="text-sm text-gray-400 italic ml-2">No cards available. Check Settings.</p>}
+                                                <div className="space-y-4">
+                                                    {sortedCardList.map(card => formData[card] && (
+                                                        <div key={card} className={`border rounded-[32px] p-5 transition-all duration-300 ${formData[card].total ? 'bg-[var(--surface-tonal)] shadow-md border-teal-200 dark:border-teal-800/40' : 'bg-white border-gray-100 dark:border-[#333]'}`}>
+                                                            <div className="flex justify-between items-center">
+                                                                <label className={`text-base font-black tracking-tight ${formData[card].total ? 'text-teal-800 dark:text-teal-400' : 'text-gray-700 dark:text-gray-400'}`}>{card}</label>
+                                                                <input type="number" disabled={!isEditMode} placeholder="₹ 0.00" value={formData[card].total} onChange={e => handleTotalChange(card, e.target.value)} className="w-1/3 border-none bg-gray-50 dark:bg-[#121212] py-2 px-3 rounded-2xl text-right font-black text-lg text-gray-800 outline-none focus:ring-2 focus:ring-teal-400 transition-shadow disabled:bg-transparent" />
+                                                            </div>
+
+                                                            {formData[card].total && (
+                                                                <div className="mt-4 pt-4 border-t border-gray-100/50 dark:border-[#333] spring-up">
+                                                                    {formData[card].overrides.map(ov => (
+                                                                        <div key={ov.id} className="flex gap-2 mb-3 relative bg-gray-50/50 dark:bg-[#121212]/50 p-2 rounded-2xl border border-gray-100 dark:border-[#252525]">
+                                                                            {isEditMode && <button onClick={() => removeOverride(card, ov.id)} className="absolute -top-2 -right-2 bg-red-100 dark:bg-red-900/30 text-red-600 border border-red-200 dark:border-red-900/50 rounded-full w-6 h-6 flex items-center justify-center shadow-sm active:scale-90 transition-transform"><i className="fa-solid fa-xmark text-xs"></i></button>}
+                                                                            <input type="text" disabled={!isEditMode} placeholder="Desc..." value={ov.desc} onChange={e => updateOverride(card, ov.id, 'desc', e.target.value)} className="w-2/5 text-sm p-2 rounded-xl border-none bg-white shadow-sm outline-none disabled:shadow-none disabled:bg-transparent" />
+                                                                            <input type="number" disabled={!isEditMode} placeholder="₹" value={ov.amount} onChange={e => updateOverride(card, ov.id, 'amount', e.target.value)} className="w-1/4 text-sm p-2 rounded-xl border-none bg-white shadow-sm font-bold outline-none disabled:shadow-none disabled:bg-transparent" />
+                                                                            <select disabled={!isEditMode} value={ov.owner} onChange={e => updateOverride(card, ov.id, 'owner', e.target.value)} className="w-1/3 text-xs p-2 rounded-xl border-none bg-white shadow-sm font-bold outline-none disabled:shadow-none disabled:bg-transparent disabled:appearance-none">
+                                                                                <option value={user1Name}>{user1Name}</option>
+                                                                                <option value={user2Name}>{user2Name}</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    ))}
+                                                                    {isEditMode && (
+                                                                        <button onClick={() => addOverride(card)} className="text-sm text-teal-600 dark:text-teal-400 font-bold flex items-center gap-2 hover:text-teal-800 active:scale-[0.97] transition-all p-2 bg-teal-50/50 dark:bg-teal-900/20 rounded-xl mt-1">
+                                                                            <i className="fa-solid fa-plus-circle"></i> Ad-hoc Spend
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-10">
+                                                <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 ml-2">Fixed & Offline Spends</h2>
+                                                <div className="space-y-3">
+                                                    {offlineSpends.map(exp => (
+                                                        <div key={exp.id} className={`flex gap-2 items-center p-2.5 border rounded-[24px] transition-all duration-300 ${exp.amount ? 'bg-[var(--surface-tonal)] border-teal-200 dark:border-teal-800/40 shadow-md' : 'bg-white border-gray-100 dark:border-[#333]'}`}>
+                                                            {isEditMode && exp.isCustom && <button onClick={() => removeOfflineSpend(exp.id)} className="text-red-400 hover:text-red-600 px-2 active:scale-90 transition-transform"><i className="fa-solid fa-circle-minus text-lg"></i></button>}
+                                                            <input type="text" placeholder="Description" value={exp.desc} disabled={!isEditMode || !exp.isCustom} onChange={e => handleOfflineChange(exp.id, 'desc', e.target.value)} className={`w-2/5 text-xs p-2.5 rounded-xl border-none outline-none ${(!exp.isCustom || !isEditMode) ? 'bg-transparent font-black text-gray-700' : 'bg-gray-50 dark:bg-[#121212] shadow-inner focus:ring-2 focus:ring-teal-300'}`} />
+                                                            <input type="number" placeholder="₹ 0.00" value={exp.amount} disabled={!isEditMode} onChange={e => handleOfflineChange(exp.id, 'amount', e.target.value)} className="w-1/4 text-sm p-2.5 rounded-xl border-none bg-gray-50 dark:bg-[#121212] font-black shadow-inner outline-none focus:ring-2 focus:ring-teal-400 text-right transition-shadow disabled:bg-transparent disabled:shadow-none" />
+                                                            <select value={exp.owner} disabled={!isEditMode} onChange={e => handleOfflineChange(exp.id, 'owner', e.target.value)} className="w-1/3 text-[10px] p-2.5 rounded-xl border-none bg-gray-50 dark:bg-[#121212] font-bold shadow-inner text-gray-700 outline-none focus:ring-2 focus:ring-teal-400 disabled:bg-transparent disabled:shadow-none disabled:appearance-none">
+                                                                <option value="Auto">Auto</option> 
+                                                                <option value="Split">Split</option>
+                                                                <option value={user1Name}>{user1Name}</option>
+                                                                <option value={user2Name}>{user2Name}</option>
+                                                            </select>
+                                                        </div>
+                                                    ))}
+                                                    {isEditMode && (
+                                                        <button onClick={addCustomOfflineSpend} className="text-sm text-teal-600 dark:text-teal-400 font-bold flex items-center gap-2 hover:text-teal-800 active:scale-[0.97] transition-all mt-3 p-2 bg-white dark:bg-[#1e1e1e] rounded-xl shadow-sm border border-gray-100 dark:border-[#333] inline-flex">
+                                                            <i className="fa-solid fa-plus-circle"></i> Add Spend
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-10">
+                                                <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 ml-2">Borrow</h2>
+                                                <div className="space-y-3">
+                                                    {newBorrows.map(b => (
+                                                        <div key={b.id} className="flex gap-2 items-center p-2.5 border rounded-[24px] bg-[var(--surface-tonal)] border-teal-200 dark:border-teal-800/40 shadow-md spring-up">
+                                                            {isEditMode && <button onClick={() => removeNewBorrow(b.id)} className="text-red-400 hover:text-red-600 px-2 active:scale-90 transition-transform"><i className="fa-solid fa-circle-minus text-lg"></i></button>}
+                                                            <input type="text" placeholder="Details" value={b.desc} disabled={!isEditMode} onChange={e => handleNewBorrowChange(b.id, 'desc', e.target.value)} className="w-2/5 text-sm p-2.5 rounded-xl border-none bg-gray-50 dark:bg-[#121212] font-bold shadow-inner outline-none disabled:bg-transparent disabled:shadow-none" />
+                                                            <input type="number" placeholder="₹ 0.00" value={b.amount} disabled={!isEditMode} onChange={e => handleNewBorrowChange(b.id, 'amount', e.target.value)} className="w-1/4 text-sm p-2.5 rounded-xl border-none bg-gray-50 dark:bg-[#121212] font-black shadow-inner outline-none text-right disabled:bg-transparent disabled:shadow-none" />
+                                                            <div className="w-1/3 text-xs flex flex-col justify-center">
+                                                                <select value={b.borrower} disabled={!isEditMode} onChange={e => handleNewBorrowChange(b.id, 'borrower', e.target.value)} className="p-2.5 rounded-xl border-none bg-gray-50 dark:bg-[#121212] font-black text-gray-700 shadow-inner outline-none disabled:bg-transparent disabled:shadow-none disabled:appearance-none">
                                                                     <option value={user1Name}>{user1Name}</option>
                                                                     <option value={user2Name}>{user2Name}</option>
                                                                 </select>
                                                             </div>
-                                                        ))}
-                                                        <button onClick={() => addOverride(card)} className="text-sm text-teal-600 font-bold flex items-center gap-2 hover:text-teal-800 active:scale-[0.97] transition-all p-2 bg-teal-50/50 rounded-xl mt-1">
-                                                            <i className="fa-solid fa-plus-circle"></i> Ad-hoc Spend
+                                                        </div>
+                                                    ))}
+                                                    {isEditMode && (
+                                                        <button onClick={addNewBorrow} className="text-sm text-teal-600 dark:text-teal-400 font-bold flex items-center gap-2 hover:text-teal-800 active:scale-[0.97] transition-all mt-3 p-2 bg-white dark:bg-[#1e1e1e] rounded-xl shadow-sm border border-gray-100 dark:border-[#333] inline-flex">
+                                                            <i className="fa-solid fa-plus-circle"></i> Add Borrow
                                                         </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="mt-10">
-                                    <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 ml-2">Fixed & Offline Spends</h2>
-                                    <div className="space-y-3">
-                                        {offlineSpends.map(exp => (
-                                            <div key={exp.id} className={`flex gap-2 items-center p-2.5 border rounded-[24px] transition-all duration-300 ${exp.amount ? 'bg-[var(--surface-tonal)] border-teal-200 shadow-md' : 'bg-white border-gray-100'}`}>
-                                                {exp.isCustom && <button onClick={() => removeOfflineSpend(exp.id)} className="text-red-400 hover:text-red-600 px-2 active:scale-90 transition-transform"><i className="fa-solid fa-circle-minus text-lg"></i></button>}
-                                                <input type="text" placeholder="Description" value={exp.desc} readOnly={!exp.isCustom} onChange={e => handleOfflineChange(exp.id, 'desc', e.target.value)} className={`w-2/5 text-xs p-2.5 rounded-xl ${!exp.isCustom ? 'bg-transparent font-black text-gray-700' : 'bg-gray-50 border-none shadow-inner outline-none focus:ring-2 focus:ring-teal-300'}`} />
-                                                <input type="number" placeholder="₹ 0.00" value={exp.amount} onChange={e => handleOfflineChange(exp.id, 'amount', e.target.value)} className="w-1/4 text-sm p-2.5 rounded-xl border-none bg-gray-50 font-black shadow-inner outline-none focus:ring-2 focus:ring-teal-400 text-right transition-shadow" />
-                                                <select value={exp.owner} onChange={e => handleOfflineChange(exp.id, 'owner', e.target.value)} className="w-1/3 text-[10px] p-2.5 rounded-xl border-none bg-gray-50 font-bold shadow-inner text-gray-700 outline-none focus:ring-2 focus:ring-teal-400">
-                                                    <option value="Auto">Auto</option> 
-                                                    <option value="Split">Split 50/50</option>
-                                                    <option value={user1Name}>{user1Name}</option>
-                                                    <option value={user2Name}>{user2Name}</option>
-                                                </select>
-                                            </div>
-                                        ))}
-                                        <button onClick={addCustomOfflineSpend} className="text-sm text-teal-600 font-bold flex items-center gap-2 hover:text-teal-800 active:scale-[0.97] transition-all mt-3 p-2 bg-white rounded-xl shadow-sm border border-gray-100 inline-flex">
-                                            <i className="fa-solid fa-plus-circle"></i> Add Spend
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="mt-10">
-                                    <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 ml-2">Borrow</h2>
-                                    <div className="space-y-3">
-                                        {newBorrows.map(b => (
-                                            <div key={b.id} className="flex gap-2 items-center p-2.5 border rounded-[24px] bg-[var(--surface-tonal)] border-teal-200 shadow-md spring-up">
-                                                <button onClick={() => removeNewBorrow(b.id)} className="text-red-400 hover:text-red-600 px-2 active:scale-90 transition-transform"><i className="fa-solid fa-circle-minus text-lg"></i></button>
-                                                <input type="text" placeholder="Details (e.g. Cash)" value={b.desc} onChange={e => handleNewBorrowChange(b.id, 'desc', e.target.value)} className="w-2/5 text-sm p-2.5 rounded-xl border-none bg-gray-50 font-bold shadow-inner outline-none focus:ring-2 focus:ring-teal-400" />
-                                                <input type="number" placeholder="₹ 0.00" value={b.amount} onChange={e => handleNewBorrowChange(b.id, 'amount', e.target.value)} className="w-1/4 text-sm p-2.5 rounded-xl border-none bg-gray-50 font-black shadow-inner focus:ring-2 focus:ring-teal-400 outline-none text-right" />
-                                                <div className="w-1/3 text-xs flex flex-col justify-center">
-                                                    <select value={b.borrower} onChange={e => handleNewBorrowChange(b.id, 'borrower', e.target.value)} className="p-2.5 rounded-xl border-none bg-gray-50 font-black text-gray-700 shadow-inner outline-none focus:ring-2 focus:ring-teal-400">
-                                                        <option value={user1Name}>{user1Name}</option>
-                                                        <option value={user2Name}>{user2Name}</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        <button onClick={addNewBorrow} className="text-sm text-teal-600 font-bold flex items-center gap-2 hover:text-teal-800 active:scale-[0.97] transition-all mt-3 p-2 bg-white rounded-xl shadow-sm border border-gray-100 inline-flex">
-                                            <i className="fa-solid fa-plus-circle"></i> Add Borrow
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {activeFilteredBorrows.length > 0 && (
-                                    <div className="mt-10">
-                                        <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 ml-2">Settle Borrow</h2>
-                                        <div className="space-y-4">
-                                            {activeFilteredBorrows.map(b => (
-                                                <div key={b.id} className={`p-5 border rounded-[28px] transition-all duration-300 ${repayments[b.id]?.active ? 'bg-teal-50 border-teal-200 shadow-md scale-[1.02]' : 'bg-white border-gray-100'}`}>
-                                                    <div className="flex justify-between items-start mb-1">
-                                                        <div>
-                                                            <p className="font-black text-base text-gray-800">{b.desc}</p>
-                                                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mt-1">{b.borrower} • Rem: <span className="font-black text-red-500">{formatMoney(b.remainingAmount)}</span></p>
-                                                        </div>
-                                                        <label className="flex items-center gap-2 text-sm font-black text-teal-700 cursor-pointer select-none active:scale-90 transition-transform bg-white/50 p-2 rounded-xl">
-                                                            <input type="checkbox" checked={!!repayments[b.id]?.active} onChange={() => toggleRepayment(b.id)} className="w-5 h-5 text-teal-600 rounded-md border-gray-300 focus:ring-teal-500 cursor-pointer" />
-                                                            Settle
-                                                        </label>
-                                                    </div>
-                                                    
-                                                    {repayments[b.id]?.active && (
-                                                        <div className="mt-4 pt-4 border-t border-teal-100/50 flex items-center justify-end gap-3 spring-up">
-                                                            <span className="text-xs font-black text-teal-800 uppercase tracking-widest">Repay Amt:</span>
-                                                            <input type="number" max={b.remainingAmount} value={repayments[b.id].amount} onChange={(e) => handleRepaymentChange(b.id, e.target.value, b.remainingAmount)} placeholder={`Max ${b.remainingAmount}`} className="w-1/2 text-sm p-3 rounded-xl border-none bg-white font-black text-right outline-none focus:ring-2 focus:ring-teal-400 shadow-sm" />
-                                                        </div>
                                                     )}
                                                 </div>
-                                            ))}
+                                            </div>
+
+                                            {activeFilteredBorrows.length > 0 && (
+                                                <div className="mt-10">
+                                                    <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 ml-2">Settle Borrow</h2>
+                                                    <div className="space-y-4">
+                                                        {activeFilteredBorrows.map(b => (
+                                                            <div key={b.id} className={`p-5 border rounded-[28px] transition-all duration-300 ${repayments[b.id]?.active ? 'bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800/40 shadow-md scale-[1.02]' : 'bg-white border-gray-100 dark:border-[#333]'}`}>
+                                                                <div className="flex justify-between items-start mb-1">
+                                                                    <div>
+                                                                        <p className="font-black text-base text-gray-800 dark:text-gray-100">{b.desc}</p>
+                                                                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mt-1">{b.borrower} • Rem: <span className="font-black text-red-500">{formatMoney(b.remainingAmount)}</span></p>
+                                                                    </div>
+                                                                    <label className={`flex items-center gap-2 text-sm font-black text-teal-700 dark:text-teal-400 cursor-pointer select-none transition-transform bg-white/50 dark:bg-black/20 p-2 rounded-xl ${!isEditMode && 'opacity-50 pointer-events-none'}`}>
+                                                                        <input type="checkbox" disabled={!isEditMode} checked={!!repayments[b.id]?.active} onChange={() => toggleRepayment(b.id)} className="w-5 h-5 text-teal-600 rounded-md border-gray-300 focus:ring-teal-500 cursor-pointer" />
+                                                                        Settle
+                                                                    </label>
+                                                                </div>
+                                                                
+                                                                {repayments[b.id]?.active && (
+                                                                    <div className="mt-4 pt-4 border-t border-teal-100/50 dark:border-teal-900/30 flex items-center justify-end gap-3 spring-up">
+                                                                        <span className="text-xs font-black text-teal-800 dark:text-teal-500 uppercase tracking-widest">Repay Amt:</span>
+                                                                        <input type="number" disabled={!isEditMode} max={b.remainingAmount} value={repayments[b.id].amount} onChange={(e) => handleRepaymentChange(b.id, e.target.value, b.remainingAmount)} placeholder={`Max ${b.remainingAmount}`} className="w-1/2 text-sm p-3 rounded-xl border-none bg-white dark:bg-[#121212] font-black text-right outline-none focus:ring-2 focus:ring-teal-400 shadow-sm disabled:bg-transparent disabled:shadow-none" />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {isEditMode && (
+                                                <div className="pt-8 mt-10 flex gap-4 pb-4 fade-in">
+                                                    <button onClick={resetForm} className="w-1/3 bg-white dark:bg-[#1e1e1e] border border-red-100 dark:border-red-900/30 text-red-500 rounded-[24px] p-4 font-black text-sm shadow-sm active:scale-[0.95] transition-all">Reset All</button>
+                                                    <button onClick={() => { setView('dashboard'); window.scrollTo(0, 0); }} className="w-2/3 bg-teal-800 text-white rounded-[24px] p-4 font-black text-base shadow-lg hover:bg-teal-900 active:scale-[0.97] transition-all flex justify-center items-center gap-3">Review Draft <i className="fa-solid fa-arrow-right"></i></button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
-
-                                <div className="pt-8 mt-10 flex gap-4 pb-4">
-                                    <button onClick={resetForm} className="w-1/3 bg-white border border-red-100 text-red-500 rounded-[24px] p-4 font-black text-sm shadow-sm active:scale-[0.95] transition-all">Reset All</button>
-                                    <button onClick={submitForCalculation} className="w-2/3 bg-teal-800 text-white rounded-[24px] p-4 font-black text-base shadow-lg hover:bg-teal-900 active:scale-[0.97] transition-all flex justify-center items-center gap-3">Review Draft <i className="fa-solid fa-arrow-right"></i></button>
-                                </div>
                             </div>
                         )}
 
@@ -1323,32 +1425,33 @@
                             <div className="space-y-8 pb-4">
                                 {isLoadingInitial && (
                                     <div className="text-center py-16 text-gray-400">
-                                        <div className="w-16 h-16 border-4 border-teal-100 border-t-teal-600 rounded-full animate-spin mx-auto mb-4"></div>
+                                        <div className="w-16 h-16 border-4 border-teal-100 dark:border-teal-900 border-t-teal-600 rounded-full animate-spin mx-auto mb-4"></div>
                                         <p className="font-bold tracking-wide">Syncing architecture...</p>
                                     </div>
                                 )}
 
+                                {/* Only show Unsaved Draft warning if editing a month with data */}
                                 {hasDraftData && (
-                                    <div className="bg-[var(--surface-tonal)] border border-amber-200 rounded-[32px] p-6 shadow-lg relative spring-up">
-                                        <div className="absolute top-0 right-0 bg-amber-300 text-amber-900 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl rounded-tr-[30px] uppercase tracking-widest">Unsaved Draft</div>
-                                        <h3 className="font-black text-xl text-gray-800 border-b border-gray-100 pb-3 mb-5 mt-2"><i className="fa-solid fa-pen-nib mr-3 text-amber-500"></i>Draft: {formatMonthName(selectedMonth)}</h3>
+                                    <div className="bg-[var(--surface-tonal)] border border-amber-200 dark:border-amber-900/30 rounded-[32px] p-6 shadow-lg relative spring-up">
+                                        <div className="absolute top-0 right-0 bg-amber-300 dark:bg-amber-700/50 text-amber-900 dark:text-amber-100 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl rounded-tr-[30px] uppercase tracking-widest">Unsaved Draft</div>
+                                        <h3 className="font-black text-xl text-gray-800 dark:text-gray-100 border-b border-gray-100 dark:border-[#333] pb-3 mb-5 mt-2"><i className="fa-solid fa-pen-nib mr-3 text-amber-500"></i>Draft: {formatMonthName(selectedMonth)}</h3>
                                         
                                         {activeCardsData.cards.length > 0 && (
                                             <>
                                                 <div className="flex justify-between items-end mb-6">
                                                     <div>
                                                         <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Total Spends</p>
-                                                        <p className="text-4xl font-black text-gray-800 tracking-tighter">{formatMoney(activeCardsData.summary.total)}</p>
+                                                        <p className="text-4xl font-black text-gray-800 dark:text-gray-100 tracking-tighter">{formatMoney(activeCardsData.summary.total)}</p>
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-4 text-sm mb-2">
-                                                    <button onClick={() => setExpandedUser(expandedUser === user1Name ? null : user1Name)} className={`p-5 rounded-[24px] flex-1 text-center border active:scale-[0.97] transition-all duration-300 ${expandedUser === user1Name ? 'bg-blue-50 border-blue-200 shadow-inner ring-2 ring-blue-100' : 'bg-white border-gray-100 shadow-sm hover:border-blue-200 hover:shadow-md'}`}>
+                                                    <button onClick={() => setExpandedUser(expandedUser === user1Name ? null : user1Name)} className={`p-5 rounded-[24px] flex-1 text-center border active:scale-[0.97] transition-all duration-300 ${expandedUser === user1Name ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/40 shadow-inner ring-2 ring-blue-100 dark:ring-blue-900' : 'bg-white border-gray-100 dark:border-[#333] shadow-sm hover:border-blue-200'}`}>
                                                         <span className="text-xs text-blue-500 font-black uppercase tracking-widest block mb-2">{user1Name}</span>
-                                                        <span className="font-black text-xl text-blue-800 tracking-tight">{formatMoney(activeCardsData.summary.u1Total)}</span>
+                                                        <span className="font-black text-xl text-blue-800 dark:text-blue-400 tracking-tight">{formatMoney(activeCardsData.summary.u1Total)}</span>
                                                     </button>
-                                                    <button onClick={() => setExpandedUser(expandedUser === user2Name ? null : user2Name)} className={`p-5 rounded-[24px] flex-1 text-center border active:scale-[0.97] transition-all duration-300 ${expandedUser === user2Name ? 'bg-purple-50 border-purple-200 shadow-inner ring-2 ring-purple-100' : 'bg-white border-gray-100 shadow-sm hover:border-purple-200 hover:shadow-md'}`}>
+                                                    <button onClick={() => setExpandedUser(expandedUser === user2Name ? null : user2Name)} className={`p-5 rounded-[24px] flex-1 text-center border active:scale-[0.97] transition-all duration-300 ${expandedUser === user2Name ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800/40 shadow-inner ring-2 ring-purple-100 dark:ring-purple-900' : 'bg-white border-gray-100 dark:border-[#333] shadow-sm hover:border-purple-200'}`}>
                                                         <span className="text-xs text-purple-500 font-black uppercase tracking-widest block mb-2">{user2Name}</span>
-                                                        <span className="font-black text-xl text-purple-800 tracking-tight">{formatMoney(activeCardsData.summary.u2Total)}</span>
+                                                        <span className="font-black text-xl text-purple-800 dark:text-purple-400 tracking-tight">{formatMoney(activeCardsData.summary.u2Total)}</span>
                                                     </button>
                                                 </div>
                                                 {expandedUser && renderUserBreakdown(expandedUser, activeCardsData.cards)}
@@ -1356,12 +1459,12 @@
                                         )}
 
                                         {activeBorrowsToSubmit.length > 0 && (
-                                            <div className="mt-6 pt-5 border-t border-amber-100">
-                                                <p className="text-[10px] font-black text-amber-800 mb-3 uppercase tracking-widest">Pending Borrows to Sync</p>
+                                            <div className="mt-6 pt-5 border-t border-amber-100 dark:border-amber-900/30">
+                                                <p className="text-[10px] font-black text-amber-800 dark:text-amber-500 mb-3 uppercase tracking-widest">Pending Borrows to Sync</p>
                                                 {activeBorrowsToSubmit.map((b, i) => (
-                                                    <div key={i} className="flex justify-between items-center text-sm bg-amber-50 p-4 rounded-[20px] mb-2 border border-amber-100">
-                                                        <span className="text-amber-900 font-bold">{b.desc} <span className="text-amber-700 text-[10px] font-black bg-amber-200 px-2 py-1 rounded-full ml-2 uppercase tracking-wide">{b.borrower}</span></span>
-                                                        <span className="font-black text-lg text-amber-900">{formatMoney(b.amount)}</span>
+                                                    <div key={i} className="flex justify-between items-center text-sm bg-amber-50 dark:bg-[#121212] p-4 rounded-[20px] mb-2 border border-amber-100 dark:border-amber-900/30">
+                                                        <span className="text-amber-900 dark:text-amber-300 font-bold">{b.desc} <span className="text-amber-700 dark:text-amber-900 text-[10px] font-black bg-amber-200 dark:bg-amber-600 px-2 py-1 rounded-full ml-2 uppercase tracking-wide">{b.borrower}</span></span>
+                                                        <span className="font-black text-lg text-amber-900 dark:text-amber-300">{formatMoney(b.amount)}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -1376,28 +1479,65 @@
                                 {!isLoadingInitial && chartData.length > 0 && (
                                     <div className="pt-2">
                                         <div className="flex justify-between items-center mb-6 px-2">
-                                            <h3 className="font-black text-2xl text-gray-800 tracking-tight">Insights</h3>
-                                            <div className="bg-white rounded-full p-1 border border-gray-200 shadow-sm flex items-center pr-3">
-                                                <div className="bg-gray-100 w-6 h-6 rounded-full flex items-center justify-center mr-2"><i className="fa-solid fa-calendar-days text-[10px] text-gray-500"></i></div>
-                                                <select value={timeframe} onChange={e => setTimeframe(e.target.value)} className="text-[11px] font-bold text-gray-600 outline-none bg-transparent appearance-none tracking-wide cursor-pointer uppercase">
-                                                    <option value="Rolling 12">Rolling 12M</option>
-                                                    <option value="CY">This Year</option>
-                                                    <option value="FY">Financial YR</option>
-                                                </select>
+                                            <h3 className="font-black text-2xl text-gray-800 dark:text-gray-100 tracking-tight">Insights</h3>
+                                            
+                                            <div className="flex gap-2">
+                                                <button onClick={() => setIsWideTimeline(!isWideTimeline)} className={`rounded-full p-2 w-9 h-9 flex items-center justify-center border shadow-sm transition-all active:scale-95 ${isWideTimeline ? 'bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 border-teal-200 dark:border-teal-700' : 'bg-white dark:bg-[#1e1e1e] text-gray-500 border-gray-200 dark:border-[#333]'}`}>
+                                                    <i className="fa-solid fa-text-width text-[10px]"></i>
+                                                </button>
+
+                                                <div className="bg-white dark:bg-[#1e1e1e] rounded-full p-1 border border-gray-200 dark:border-[#333] shadow-sm flex items-center pr-3">
+                                                    <div className="bg-gray-100 dark:bg-[#252525] w-6 h-6 rounded-full flex items-center justify-center mr-2"><i className="fa-solid fa-calendar-days text-[10px] text-gray-500"></i></div>
+                                                    <select value={timeframe} onChange={e => setTimeframe(e.target.value)} className="text-[11px] font-bold text-gray-600 dark:text-gray-300 outline-none bg-transparent appearance-none tracking-wide cursor-pointer uppercase">
+                                                        <option value="Rolling 12">Rolling 12M</option>
+                                                        <option value="CY">This Year</option>
+                                                        <option value="FY">Financial YR</option>
+                                                    </select>
+                                                </div>
                                             </div>
                                         </div>
+                                        
                                         {chartOrder.map((id, index) => renderChart(id, index))}
+
+                                        {/* MoM Variance Engine */}
+                                        {varianceData && (
+                                            <div className="bg-white dark:bg-[#1e1e1e] p-6 rounded-[32px] border border-gray-100 dark:border-[#333] shadow-sm mt-6 fade-in relative overflow-hidden">
+                                                <h4 className="font-black text-gray-800 dark:text-gray-100 text-sm tracking-tight mb-5 border-b border-gray-50 dark:border-[#252525] pb-3 flex items-center">
+                                                    <i className="fa-solid fa-code-compare mr-2 text-blue-500"></i>MoM Variance Engine
+                                                    <span className="text-[9px] font-bold text-gray-400 bg-gray-50 dark:bg-[#252525] px-2 py-1 rounded ml-3 uppercase tracking-widest border border-gray-100 dark:border-[#333]">
+                                                        {formatMonthName(varianceData.prevMonth)} <i className="fa-solid fa-arrow-right mx-1 opacity-50"></i> {formatMonthName(varianceData.month)}
+                                                    </span>
+                                                </h4>
+                                                
+                                                <div className="space-y-3 relative z-10">
+                                                    {[
+                                                        {label: 'Gross Total Spends', val: varianceData.total, icon: 'fa-money-bill-wave'}, 
+                                                        {label: 'Credit Card Overheads', val: varianceData.cc, icon: 'fa-credit-card'},
+                                                        {label: 'Household Baseline', val: varianceData.hh, icon: 'fa-house'}, 
+                                                        {label: 'Ad-hoc Spikes', val: varianceData.adhoc, icon: 'fa-tag'}
+                                                    ].map((v, i) => (
+                                                        <div key={i} className="flex justify-between items-center text-xs font-bold p-3 bg-gray-50 dark:bg-[#121212] rounded-[16px] border border-transparent hover:border-gray-100 dark:hover:border-[#333] transition-all">
+                                                            <span className="text-gray-600 dark:text-gray-400 flex items-center gap-2"><i className={`fa-solid ${v.icon} opacity-50 w-4`}></i> {v.label}</span>
+                                                            <span className={`flex items-center gap-1.5 ${v.val > 0 ? 'text-red-500' : (v.val < 0 ? 'text-green-500' : 'text-gray-400')}`}>
+                                                                {v.val > 0 ? <i className="fa-solid fa-arrow-trend-up text-[10px]"></i> : (v.val < 0 ? <i className="fa-solid fa-arrow-trend-down text-[10px]"></i> : '- ')} 
+                                                                {formatMoney(Math.abs(v.val))}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
                                 {!isLoadingInitial && fetchedSummary.length === 0 && !hasDraftData && (
                                     <div className="text-center py-24 text-gray-400 fade-in">
-                                        <div className="w-32 h-32 mx-auto bg-white shadow-sm border border-gray-100 rounded-full flex items-center justify-center mb-8">
-                                            <i className="fa-regular fa-folder-open text-5xl text-gray-300"></i>
+                                        <div className="w-32 h-32 mx-auto bg-white dark:bg-[#1e1e1e] shadow-sm border border-gray-100 dark:border-[#333] rounded-full flex items-center justify-center mb-8">
+                                            <i className="fa-regular fa-folder-open text-5xl text-gray-300 dark:text-gray-600"></i>
                                         </div>
-                                        <p className="font-black text-gray-800 mb-2 text-2xl tracking-tight">Blank Canvas</p>
+                                        <p className="font-black text-gray-800 dark:text-gray-100 mb-2 text-2xl tracking-tight">Blank Canvas</p>
                                         <p className="text-base mb-10 text-gray-500 font-medium">Log your first month to unlock architecture.</p>
-                                        <button onClick={() => setView('entry')} className="bg-gray-800 text-white px-10 py-4 rounded-full font-black text-lg shadow-[0_10px_25px_rgba(0,0,0,0.2)] hover:bg-black active:scale-95 transition-all">
+                                        <button onClick={() => {setView('entry'); setSelectedMonth('');}} className="bg-gray-800 dark:bg-gray-700 text-white px-10 py-4 rounded-full font-black text-lg shadow-[0_10px_25px_rgba(0,0,0,0.2)] hover:bg-black active:scale-95 transition-all">
                                             Initialize Entry
                                         </button>
                                     </div>
@@ -1407,38 +1547,43 @@
 
                         {view === 'settings' && (
                             <div className="space-y-6 pb-6 fade-in">
-                                <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm space-y-6">
-                                    <h3 className="font-black text-gray-800 border-b border-gray-100 pb-4 text-xl tracking-tight"><i className="fa-solid fa-gears mr-3 text-teal-600"></i>Configuration</h3>
-                                    <div>
-                                        <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2">Apps Script URL</label>
-                                        <input type="text" value={scriptUrl} onChange={e => {setScriptUrl(e.target.value); localStorage.setItem('bs_script_url', e.target.value);}} className="w-full bg-gray-50 border-none p-4 rounded-[20px] text-sm font-bold text-gray-700 shadow-inner focus:outline-none focus:ring-2 focus:ring-teal-400 transition-shadow" />
+                                <div className="bg-white p-8 rounded-[32px] border border-gray-100 dark:border-[#333] shadow-sm space-y-6">
+                                    <h3 className="font-black text-gray-800 dark:text-gray-100 border-b border-gray-100 dark:border-[#333] pb-4 text-xl tracking-tight"><i className="fa-solid fa-gears mr-3 text-teal-600"></i>Configuration</h3>
+                                    
+                                    <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800/30 p-4 rounded-[20px] flex items-start gap-3 mb-6">
+                                        <i className="fa-solid fa-shield-halved text-teal-600 dark:text-teal-400 mt-1"></i>
+                                        <div>
+                                            <p className="text-xs font-black text-teal-800 dark:text-teal-400 uppercase tracking-widest mb-1">Connection Secured</p>
+                                            <p className="text-[11px] font-medium text-teal-700 dark:text-teal-500/80 leading-relaxed">Your Google Apps Script URL is obfuscated and securely loaded directly into the app memory. No manual URL entry is required.</p>
+                                        </div>
                                     </div>
+
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2">User 1</label>
-                                            <input type="text" value={user1Name} onChange={e => {setUser1Name(e.target.value); localStorage.setItem('bs_user1_name', e.target.value);}} className="w-full bg-gray-50 border-none p-4 rounded-[20px] text-sm font-bold text-gray-700 shadow-inner focus:outline-none focus:ring-2 focus:ring-teal-400 transition-shadow" />
+                                            <input type="text" value={user1Name} onChange={e => {setUser1Name(e.target.value); localStorage.setItem('bs_user1_name', e.target.value);}} className="w-full bg-gray-50 dark:bg-[#121212] border-none p-4 rounded-[20px] text-sm font-bold text-gray-700 dark:text-gray-300 shadow-inner focus:outline-none focus:ring-2 focus:ring-teal-400 transition-shadow" />
                                         </div>
                                         <div>
                                             <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2">User 2</label>
-                                            <input type="text" value={user2Name} onChange={e => {setUser2Name(e.target.value); localStorage.setItem('bs_user2_name', e.target.value);}} className="w-full bg-gray-50 border-none p-4 rounded-[20px] text-sm font-bold text-gray-700 shadow-inner focus:outline-none focus:ring-2 focus:ring-teal-400 transition-shadow" />
+                                            <input type="text" value={user2Name} onChange={e => {setUser2Name(e.target.value); localStorage.setItem('bs_user2_name', e.target.value);}} className="w-full bg-gray-50 dark:bg-[#121212] border-none p-4 rounded-[20px] text-sm font-bold text-gray-700 dark:text-gray-300 shadow-inner focus:outline-none focus:ring-2 focus:ring-teal-400 transition-shadow" />
                                         </div>
                                     </div>
                                     <button onClick={() => { setView('dashboard'); fetchAllData(); }} className="w-full bg-gray-800 text-white p-5 rounded-[24px] font-black text-lg mt-8 hover:bg-black active:scale-[0.97] transition-all shadow-lg">Save & Re-sync</button>
                                 </div>
 
-                                <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm space-y-6">
-                                    <h3 className="font-black text-gray-800 border-b border-gray-100 pb-4 text-xl tracking-tight"><i className="fa-regular fa-credit-card mr-3 text-teal-600"></i>Manage Assets</h3>
+                                <div className="bg-white p-8 rounded-[32px] border border-gray-100 dark:border-[#333] shadow-sm space-y-6">
+                                    <h3 className="font-black text-gray-800 dark:text-gray-100 border-b border-gray-100 dark:border-[#333] pb-4 text-xl tracking-tight"><i className="fa-regular fa-credit-card mr-3 text-teal-600"></i>Manage Assets</h3>
                                     <div className="flex gap-3">
-                                        <input type="text" placeholder="New Card Name..." value={newCardName} onChange={e => setNewCardName(e.target.value)} className="flex-1 bg-gray-50 border-none p-4 rounded-[20px] text-sm font-bold text-gray-700 shadow-inner focus:outline-none focus:ring-2 focus:ring-teal-400 transition-shadow" />
+                                        <input type="text" placeholder="New Card Name..." value={newCardName} onChange={e => setNewCardName(e.target.value)} className="flex-1 bg-gray-50 dark:bg-[#121212] border-none p-4 rounded-[20px] text-sm font-bold text-gray-700 dark:text-gray-300 shadow-inner focus:outline-none focus:ring-2 focus:ring-teal-400 transition-shadow" />
                                         <button onClick={handleAddCard} disabled={isAddingCard || !newCardName.trim()} className="bg-teal-700 text-white px-6 py-4 rounded-[20px] font-black text-sm hover:bg-teal-800 disabled:opacity-50 active:scale-[0.95] transition-all shadow-md">
                                             {isAddingCard ? <i className="fa-solid fa-spinner fa-spin"></i> : 'Add'}
                                         </button>
                                     </div>
-                                    <div className="mt-6 pt-4 border-t border-gray-50">
+                                    <div className="mt-6 pt-4 border-t border-gray-50 dark:border-[#252525]">
                                         <p className="text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest ml-2">Active Cards Loaded</p>
                                         <div className="flex flex-wrap gap-2.5">
                                             {cardList.length > 0 ? cardList.map((c, i) => (
-                                                <span key={i} className="bg-white border border-gray-200 shadow-sm text-gray-700 text-xs px-4 py-2 rounded-full font-bold">{c}</span>
+                                                <span key={i} className="bg-white dark:bg-[#252525] border border-gray-200 dark:border-[#333] shadow-sm text-gray-700 dark:text-gray-300 text-xs px-4 py-2 rounded-full font-bold">{c}</span>
                                             )) : <span className="text-xs text-gray-400 italic">No cards configured.</span>}
                                         </div>
                                     </div>
@@ -1573,6 +1718,14 @@
                                         </div>
                                     )}
                                 </div>
+                                
+                                {historyMonthData && (
+                                    <div className="p-5 border-t border-gray-100 dark:border-[#222] bg-white dark:bg-[#111]">
+                                        <button onClick={() => handleShareScope('All', historyMonthData)} className="w-full bg-[#25D366] text-white p-5 rounded-[24px] font-black text-lg flex justify-center items-center gap-3 hover:bg-[#128C7E] active:scale-[0.97] transition-all shadow-[0_10px_25px_rgba(37,211,102,0.3)]">
+                                            <i className="fa-brands fa-whatsapp text-2xl"></i> Share {historyMonthData.month}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -1591,7 +1744,6 @@
                                 <div className="p-5 flex-1 overflow-y-auto">
                                     {activeBorrows && activeBorrows.length > 0 ? (
                                         <div className="space-y-4">
-                                            {/* Phase 1: Active Ledger Mapping */}
                                             {activeFilteredBorrows.map(b => {
                                                 const isExpanded = expandedBorrow === b.id;
                                                 const isSelectedForShare = shareSelectedBorrow?.id === b.id;
@@ -1649,7 +1801,6 @@
                                                 )
                                             })}
 
-                                            {/* Phase 1: Settled Ledger Archive */}
                                             {settledArchiveBorrows.length > 0 && (
                                                 <div className="mt-8 pt-4">
                                                     <h4 className="font-black text-xs text-gray-400 mb-4 border-b border-gray-200 dark:border-[#333] pb-2 uppercase tracking-widest ml-1"><i className="fa-solid fa-box-archive mr-2"></i>Settled Ledger History</h4>
@@ -1776,7 +1927,7 @@
                             </button>
                         </div>
                         
-                        <button onClick={() => setView('entry')} className={`flex-1 py-3 flex flex-col items-center justify-center transition-colors active:scale-95 ${view === 'entry' ? 'text-teal-700 dark:text-teal-400' : 'text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}>
+                        <button onClick={() => {setView('entry'); setSelectedMonth('');}} className={`flex-1 py-3 flex flex-col items-center justify-center transition-colors active:scale-95 ${view === 'entry' ? 'text-teal-700 dark:text-teal-400' : 'text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}>
                             <i className="fa-solid fa-pen-to-square text-xl mb-1.5"></i>
                             <span className="text-[9px] font-black tracking-widest uppercase">Entry</span>
                         </button>
