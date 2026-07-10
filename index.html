@@ -198,12 +198,15 @@
                 if (scriptUrl) fetchAllData();
             }, [scriptUrl]);
 
+            // Phase 1 - History Log Auto-Targeting: Auto-select highest month chronologically
             useEffect(() => {
                 if (fetchedSummary && fetchedSummary.length > 0 && !historyMonth) {
-                    const lastRow = fetchedSummary[fetchedSummary.length - 1];
-                    if (lastRow && lastRow[0]) setHistoryMonth(toYYYYMM(lastRow[0]));
+                    const allMonths = fetchedSummary.filter(s => s && s[0]).map(s => toYYYYMM(s[0])).sort();
+                    if (allMonths.length > 0) {
+                        setHistoryMonth(allMonths[allMonths.length - 1]);
+                    }
                 }
-            }, [fetchedSummary]);
+            }, [fetchedSummary, historyMonth]);
 
             const sortedCardList = useMemo(() => {
                 if (!cardList.length) return [];
@@ -222,15 +225,62 @@
                 return [...cardList].sort((a, b) => counts[b] - counts[a]);
             }, [cardList, fetchedCards]);
 
+            const parseDeductionsLog = (logStr) => {
+                if (!logStr || String(logStr) === 'None') return [];
+                return String(logStr).split(' | ').map(item => {
+                    const match = item.match(/(.*)\s-\s₹([\d.]+)\s\((.*)\)/);
+                    if (match) return { desc: match[1].trim(), amount: parseFloat(match[2]), owner: match[3].trim() };
+                    return null;
+                }).filter(Boolean);
+            };
+
+            // Phase 1 - Bi-Directional Entry Editing (State Rehydration)
             useEffect(() => {
+                const monthCards = fetchedCards.filter(c => c && c[0] && toYYYYMM(c[0]) === selectedMonth);
+                
                 setFormData(prev => {
-                    const updated = { ...prev };
-                    sortedCardList.forEach(c => {
-                        if (!updated[c]) updated[c] = { total: '', overrides: [] };
-                    });
+                    const updated = {};
+                    sortedCardList.forEach(c => { updated[c] = { total: '', overrides: [] }; });
+                    
+                    if (monthCards.length > 0) {
+                        monthCards.forEach(c => {
+                            const cardName = c[1];
+                            if (sortedCardList.includes(cardName)) {
+                                const overrides = parseDeductionsLog(c[5]).map(ov => ({
+                                    id: generateId(), desc: ov.desc, amount: ov.amount, owner: ov.owner
+                                }));
+                                updated[cardName] = { total: parseFloat(c[2]) || '', overrides };
+                            }
+                        });
+                    }
                     return updated;
                 });
-            }, [sortedCardList]);
+
+                if (monthCards.length > 0) {
+                    let newOffline = [];
+                    let newReps = {};
+                    monthCards.forEach(c => {
+                        if (c[1] === 'Offline & Fixed Spends') {
+                            newOffline = parseDeductionsLog(c[5]).map(ov => ({
+                                id: generateId(), desc: ov.desc, amount: ov.amount, owner: ov.owner, isCustom: !DEFAULT_OFFLINE_SPENDS.includes(ov.desc)
+                            }));
+                        }
+                        if (c[1] === 'Settle Borrow') {
+                            parseDeductionsLog(c[5]).forEach(rep => {
+                                const activeB = activeBorrows.find(b => b.desc === rep.desc);
+                                if (activeB) newReps[activeB.id] = { active: true, amount: rep.amount };
+                            });
+                        }
+                    });
+                    if (newOffline.length === 0) newOffline = initOfflineSpends();
+                    setOfflineSpends(newOffline);
+                    setRepayments(newReps);
+                } else {
+                    setOfflineSpends(initOfflineSpends());
+                    setRepayments({});
+                }
+                setNewBorrows([]); // Reset fresh borrows on month toggle
+            }, [selectedMonth, sortedCardList, fetchedCards, activeBorrows]);
 
             const fetchAllData = async () => {
                 if (!scriptUrl.trim()) return;
@@ -337,15 +387,6 @@
                 const match = ovStr.match(/(.*)\s-\s₹([\d.]+)\s\((.*)\)/);
                 if (match) return `${match[1].trim()} - ${formatMoney(match[2])} (${match[3].trim()})`;
                 return ovStr;
-            };
-
-            const parseDeductionsLog = (logStr) => {
-                if (!logStr || String(logStr) === 'None') return [];
-                return String(logStr).split(' | ').map(item => {
-                    const match = item.match(/(.*)\s-\s₹([\d.]+)\s\((.*)\)/);
-                    if (match) return { desc: match[1].trim(), amount: parseFloat(match[2]), owner: match[3].trim() };
-                    return null;
-                }).filter(Boolean);
             };
 
             const moveChart = (index, direction) => {
@@ -457,8 +498,13 @@
                 return newBorrows.filter(b => parseFloat(b.amount) > 0 && b.desc.trim() !== '');
             }, [newBorrows]);
             
+            // Phase 1 - Ledger Partitioning
             const activeFilteredBorrows = useMemo(() => {
                 return activeBorrows.filter(b => b.remainingAmount > 0);
+            }, [activeBorrows]);
+            
+            const settledArchiveBorrows = useMemo(() => {
+                return activeBorrows.filter(b => b.remainingAmount <= 0);
             }, [activeBorrows]);
 
             const hasDraftData = activeCardsData.cards.length > 0 || activeBorrowsToSubmit.length > 0;
@@ -489,12 +535,6 @@
                     });
                     
                     alert(`Successfully synced ${selectedMonth} to Sheets!`);
-                    const reset = {};
-                    sortedCardList.forEach(c => reset[c] = { total: '', overrides: [] });
-                    setFormData(reset);
-                    setOfflineSpends(initOfflineSpends());
-                    setNewBorrows([]);
-                    setRepayments({});
                     setTimeout(fetchAllData, 1000);
                 } catch (error) {
                     alert('Error syncing to Sheet. Check network connection.');
@@ -796,99 +836,93 @@
                 setPopupData({ title, content });
             };
 
-            const generateShareText = (type, customData = null) => {
-                const e = {
-                    chart: '\uD83D\uDCCA', cal: '\uD83D\uDCC5', money: '\uD83D\uDCB0', down: '\uD83D\uDCC9', 
-                    u1: '\uD83D\uDD35', u2: '\uD83D\uDFE3', sparkle: '\u2728', card: '\uD83D\uDCB3', 
-                    dot: '\uD83D\uDD39', pin: '\uD83D\uDCCC', home: '\uD83C\uDFE0', sync: '\uD83D\uDD04', 
-                    smalldot: '\u25AB\uFE0F', line: '━━━━━━━━━━━━━━━━━━━━━'
-                };
+            // Phase 1 - Targeted Export Share Engine
+            const handleShareScope = (scope) => {
+                const sourceCards = hasDraftData ? activeCardsData.cards : (lastMonthData ? lastMonthData.cards : []);
+                if (sourceCards.length === 0) {
+                    alert("No data available to share for this scope.");
+                    return;
+                }
 
-                const buildInsightsText = () => {
-                    if (chartData.length === 0) return `${e.chart} *BILLSPLIT INSIGHTS*\nNo data available.\n\n`;
-                    const totalTracked = pieData.reduce((acc, curr) => acc + curr.value, 0);
-                    const avgSpend = totalTracked / chartData.length;
+                let text = ``;
+                if (scope === user1Name || scope === user2Name) {
+                    text += `📊 *${scope}'s Breakdown*\n━━━━━━━━━━━━━━━━━━━━━\n\n`;
+                    let hhSpends = [], ccSpends = [], adhocSpends = [];
+                    let hhTotal = 0, ccTotal = 0, adhocTotal = 0;
                     
-                    let insights = `${e.chart} *BILLSPLIT INSIGHTS*\n`;
-                    insights += `⏳ _${timeframe.toUpperCase()}_\n`;
-                    insights += `${e.line}\n\n`;
-                    insights += `${e.cal} *Months Tracked:* ${chartData.length}\n\n`;
-                    insights += `${e.money} *Total Spends:* ${formatMoney(totalTracked)}\n`;
-                    insights += `${e.down} *Monthly Average:* ${formatMoney(avgSpend)}\n\n`;
-                    insights += `${e.u1} *${user1Name}'s Share:* ${formatMoney(pieData[0].value)}\n`;
-                    insights += `${e.u2} *${user2Name}'s Share:* ${formatMoney(pieData[1].value)}\n\n`;
-                    insights += `${e.line}\n`;
-                    insights += `${e.sparkle} _Generated via BillSplit_`;
-                    return insights;
-                };
+                    sourceCards.forEach(c => {
+                        const isArray = Array.isArray(c);
+                        const cName = (isArray ? c[1] : c.cardName) || 'Unknown';
+                        const uShare = isArray ? (scope === user1Name ? c[3] : c[4]) : (scope === user1Name ? c.u1Share : c.u2Share);
+                        let overrides = isArray ? parseDeductionsLog(c[5]) : (c.overrides || []);
 
-                const buildMonthText = (dataObj, label = "LAST MONTH") => {
-                    if (!dataObj) return `${e.chart} *${label} SUMMARY*\nNo data available.\n\n`;
-                    let mText = `${e.chart} *${label.toUpperCase()} SUMMARY*\n`;
-                    mText += `${e.cal} *MONTH:* ${dataObj.month.toUpperCase()}\n`;
-                    mText += `${e.line}\n\n`;
-                    mText += `${e.money} *Total Spends:* ${formatMoney(dataObj.total)}\n\n`;
-                    mText += `${e.u1} *${user1Name}'s Share:* ${formatMoney(dataObj.u1Total)}\n`;
-                    mText += `${e.u2} *${user2Name}'s Share:* ${formatMoney(dataObj.u2Total)}\n\n`;
-
-                    if (dataObj.cards.length > 0) {
-                        const ccData = dataObj.cards.filter(c => c[1] !== 'Offline & Fixed Spends' && c[1] !== 'Settle Borrow');
-                        const offlineData = dataObj.cards.find(c => c[1] === 'Offline & Fixed Spends');
-                        const loanData = dataObj.cards.find(c => c[1] === 'Settle Borrow');
-
-                        if (ccData.length > 0) {
-                            mText += `${e.line}\n`;
-                            mText += `${e.card} *CREDIT CARDS*\n\n`;
-                            ccData.forEach(c => {
-                                mText += `${e.dot} *${c[1]}* \n     ${formatMoney(c[2])}\n`;
-                                mText += `     ↳ ${user1Name}: ${formatMoney(c[3])} | ${user2Name}: ${formatMoney(c[4])}\n`;
-                                if (c[5] && c[5] !== 'None') {
-                                    String(c[5]).split(' | ').forEach(ov => { mText += `     ${e.pin} _${formatOverrideString(ov)}_\n`; });
-                                }
-                                mText += `\n`;
+                        if (cName === 'Offline & Fixed Spends') {
+                            overrides.forEach(ov => {
+                                let itemShare = ov.owner === scope ? parseFloat(ov.amount) : (ov.owner === 'Split' ? parseFloat(ov.amount)/2 : 0);
+                                if (itemShare > 0) { hhSpends.push({desc: ov.desc, amt: itemShare}); hhTotal += itemShare; }
                             });
+                        } else if (cName !== 'Settle Borrow') {
+                            let cardBase = parseFloat(uShare) || 0;
+                            overrides.forEach(ov => {
+                                let dedAmt = ov.owner === scope ? parseFloat(ov.amount) : (ov.owner === 'Split' ? parseFloat(ov.amount)/2 : 0);
+                                if (dedAmt > 0) {
+                                    const isHh = DEFAULT_OFFLINE_SPENDS.some(def => ov.desc.toLowerCase().includes(def.toLowerCase()));
+                                    if (isHh) { hhSpends.push({desc: `${ov.desc} (${cName})`, amt: dedAmt}); hhTotal += dedAmt; }
+                                    else { adhocSpends.push({desc: `${ov.desc} (${cName})`, amt: dedAmt}); adhocTotal += dedAmt; }
+                                    cardBase -= dedAmt;
+                                }
+                            });
+                            if (cardBase > 0) { ccSpends.push({desc: cName, amt: cardBase}); ccTotal += cardBase; }
                         }
+                    });
 
-                        if (offlineData && offlineData[5] !== 'None') {
-                            mText += `${e.line}\n`;
-                            mText += `${e.home} *FIXED & OFFLINE SPENDS*\n\n`;
-                            mText += `${e.dot} *Total Expenses* \n     ${formatMoney(offlineData[2])}\n`;
-                            mText += `     ↳ ${user1Name}: ${formatMoney(offlineData[3])} | ${user2Name}: ${formatMoney(offlineData[4])}\n`;
-                            String(offlineData[5]).split(' | ').forEach(ov => { mText += `     ${e.smalldot} _${formatOverrideString(ov)}_\n`; });
-                            mText += `\n`;
-                        }
-
-                        if (loanData && loanData[5] !== 'None') {
-                            mText += `${e.line}\n`;
-                            mText += `${e.sync} *BORROW REPAYMENTS*\n\n`;
-                            String(loanData[5]).split(' | ').forEach(ov => { mText += `     ${e.smalldot} _${formatOverrideString(ov)}_\n`; });
-                            mText += `\n`;
-                        }
+                    text += `*HOUSEHOLD SPENDS*    ${formatMoney(hhTotal)}\n`;
+                    hhSpends.forEach(item => text += `  > ${item.desc}   ${formatMoney(item.amt)}\n`);
+                    text += `\n*CREDIT CARD SPENDS*  ${formatMoney(ccTotal)}\n`;
+                    ccSpends.forEach(item => text += `  💳 ${item.desc}   ${formatMoney(item.amt)}\n`);
+                    if(adhocSpends.length > 0) {
+                        text += `\n*AD-HOC SPENDS*       ${formatMoney(adhocTotal)}\n`;
+                        adhocSpends.forEach(item => text += `  🏷️ ${item.desc}   ${formatMoney(item.amt)}\n`);
                     }
-                    mText += `${e.line}\n`;
-                    mText += `${e.sparkle} _Generated via BillSplit_`;
-                    return mText;
-                };
-
-                if (type === 'insights') return buildInsightsText();
-                if (type === 'lastMonth') return buildMonthText(lastMonthData, "LAST MONTH");
-                if (type === 'both') return buildInsightsText() + `\n\n` + buildMonthText(lastMonthData, "LAST MONTH");
-                if (type === 'history') return buildMonthText(customData, "MONTHLY");
-                return '';
-            };
-
-            const handleShare = (type, customData = null) => {
-                const text = generateShareText(type, customData);
+                } else if (scope === 'Cards') {
+                    text += `💳 *Credit Card Spends*\n━━━━━━━━━━━━━━━━━━━━━\n\n`;
+                    sourceCards.forEach(c => {
+                        const isArray = Array.isArray(c);
+                        const cName = (isArray ? c[1] : c.cardName) || 'Unknown';
+                        const cTotal = isArray ? c[2] : c.total;
+                        if (cName !== 'Offline & Fixed Spends' && cName !== 'Settle Borrow' && cTotal > 0) {
+                            text += `*${cName}*  ${formatMoney(cTotal)}\n`;
+                            let overrides = isArray ? parseDeductionsLog(c[5]) : (c.overrides || []);
+                            overrides.forEach(ov => text += `  > ${ov.desc} (${ov.owner})  ${formatMoney(ov.amount)}\n`);
+                            text += `\n`;
+                        }
+                    });
+                } else if (scope === 'Household') {
+                    text += `🏠 *Household Baseline*\n━━━━━━━━━━━━━━━━━━━━━\n\n`;
+                    sourceCards.forEach(c => {
+                        const isArray = Array.isArray(c);
+                        const cName = (isArray ? c[1] : c.cardName) || 'Unknown';
+                        let overrides = isArray ? parseDeductionsLog(c[5]) : (c.overrides || []);
+                        overrides.forEach(ov => {
+                            const isHh = DEFAULT_OFFLINE_SPENDS.some(def => ov.desc.toLowerCase().includes(def.toLowerCase()));
+                            if (isHh || cName === 'Offline & Fixed Spends') {
+                                text += `  > ${ov.desc}   ${formatMoney(ov.amount)}\n`;
+                            }
+                        });
+                    });
+                } else {
+                    // Complete Summary Logic (Default All)
+                    const mTotal = hasDraftData ? activeCardsData.summary.total : lastMonthData.total;
+                    const mU1 = hasDraftData ? activeCardsData.summary.u1Total : lastMonthData.u1Total;
+                    const mU2 = hasDraftData ? activeCardsData.summary.u2Total : lastMonthData.u2Total;
+                    text += `📄 *COMPLETE SUMMARY*\n━━━━━━━━━━━━━━━━━━━━━\n\n`;
+                    text += `💰 *Gross Total:* ${formatMoney(mTotal)}\n`;
+                    text += `🔵 *${user1Name}:* ${formatMoney(mU1)}\n`;
+                    text += `🟣 *${user2Name}:* ${formatMoney(mU2)}\n\n`;
+                }
+                text += `\n✨ _Generated via BillSplit_`;
                 window.open(`https://wa.me/?text=${encodeURIComponent(text.trim())}`);
                 setShareModalOpen(false);
-            };
-
-            const handleCopy = (type, customData = null) => {
-                const text = generateShareText(type, customData);
-                navigator.clipboard.writeText(text).then(() => {
-                    alert("Text copied to clipboard!");
-                    setShareModalOpen(false);
-                });
             };
 
             const toggleChart = (e, id) => {
@@ -1539,14 +1573,6 @@
                                         </div>
                                     )}
                                 </div>
-                                
-                                {historyMonthData && (
-                                    <div className="p-5 border-t border-gray-100 dark:border-[#222] bg-white dark:bg-[#111]">
-                                        <button onClick={() => handleShare('history', historyMonthData)} className="w-full bg-[#25D366] text-white p-5 rounded-[24px] font-black text-lg flex justify-center items-center gap-3 hover:bg-[#128C7E] active:scale-[0.97] transition-all shadow-[0_10px_25px_rgba(37,211,102,0.3)]">
-                                            <i className="fa-brands fa-whatsapp text-2xl"></i> Share {historyMonthData.month}
-                                        </button>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     )}
@@ -1565,7 +1591,8 @@
                                 <div className="p-5 flex-1 overflow-y-auto">
                                     {activeBorrows && activeBorrows.length > 0 ? (
                                         <div className="space-y-4">
-                                            {activeBorrows.map(b => {
+                                            {/* Phase 1: Active Ledger Mapping */}
+                                            {activeFilteredBorrows.map(b => {
                                                 const isExpanded = expandedBorrow === b.id;
                                                 const isSelectedForShare = shareSelectedBorrow?.id === b.id;
                                                 
@@ -1621,6 +1648,52 @@
                                                     </div>
                                                 )
                                             })}
+
+                                            {/* Phase 1: Settled Ledger Archive */}
+                                            {settledArchiveBorrows.length > 0 && (
+                                                <div className="mt-8 pt-4">
+                                                    <h4 className="font-black text-xs text-gray-400 mb-4 border-b border-gray-200 dark:border-[#333] pb-2 uppercase tracking-widest ml-1"><i className="fa-solid fa-box-archive mr-2"></i>Settled Ledger History</h4>
+                                                    <div className="space-y-4">
+                                                        {settledArchiveBorrows.map(b => {
+                                                            const isExpanded = expandedBorrow === b.id;
+                                                            return (
+                                                                <div key={b.id} className="bg-gray-100 dark:bg-[#1a1a1a] p-5 rounded-[28px] border border-gray-200 dark:border-[#333] opacity-70 hover:opacity-100 transition-opacity">
+                                                                    <div className="flex-1 cursor-pointer" onClick={() => setExpandedBorrow(isExpanded ? null : b.id)}>
+                                                                        <div className="flex justify-between items-start mb-1">
+                                                                            <div>
+                                                                                <p className="font-black text-gray-500 dark:text-gray-400 text-base leading-tight mb-2 tracking-tight line-through">{b.desc}</p>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 px-2.5 py-1 rounded-full">Settled</span>
+                                                                                    <span className="text-[10px] text-gray-400 font-bold tracking-wide">{formatMonthName(b.month)}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="text-right">
+                                                                                <p className="font-black text-gray-500 text-lg tracking-tighter">{formatMoney(b.totalAmount)}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {isExpanded && (
+                                                                            <div className="mt-5 pt-4 border-t border-gray-200 dark:border-[#333] spring-up" onClick={e => e.stopPropagation()}>
+                                                                                <h4 className="font-black text-[10px] text-gray-400 uppercase tracking-widest mb-3">Full Archeology</h4>
+                                                                                {b.history && b.history.length > 0 && (
+                                                                                    <div className="space-y-2">
+                                                                                        {b.history.map((h, i) => (
+                                                                                            <div key={i} className="flex justify-between items-center text-xs bg-white dark:bg-[#111] p-2.5 rounded-xl border-l-2 border-gray-300">
+                                                                                                <span className="text-gray-500 font-bold">{formatMonthName(h.date)}</span>
+                                                                                                <span className="font-black text-gray-600 dark:text-gray-400">{formatMoney(h.amount)}</span>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="text-center py-20 text-gray-400">
@@ -1648,14 +1721,23 @@
                     {view === 'dashboard' && chartData.length > 0 && (
                         <div className={`fixed right-6 z-40 transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) ${isNavVisible ? 'bottom-28' : 'bottom-6'}`}>
                             {shareModalOpen && (
-                                <div className="absolute bottom-[70px] right-0 bg-white/95 dark:bg-[#111]/95 backdrop-blur-xl border border-gray-200/50 dark:border-[#333]/50 shadow-2xl rounded-[28px] p-2.5 w-64 space-y-1.5 spring-up">
-                                    <button onClick={() => handleShare('insights')} className="w-full text-left px-5 py-4 text-sm hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded-2xl font-black text-teal-800 dark:text-teal-400 flex items-center gap-4 transition-colors">
-                                        <div className="bg-green-100 dark:bg-green-900/50 w-8 h-8 rounded-full flex items-center justify-center"><i className="fa-brands fa-whatsapp text-lg text-green-600 dark:text-green-400"></i></div> 
-                                        Share {timeframe}
+                                <div className="absolute bottom-[70px] right-0 bg-white/95 dark:bg-[#111]/95 backdrop-blur-xl border border-gray-200/50 dark:border-[#333]/50 shadow-2xl rounded-[28px] p-2 w-64 space-y-1 spring-up">
+                                    <p className="text-[10px] font-black uppercase text-gray-400 ml-4 mt-2 mb-2 tracking-widest">Targeted Export</p>
+                                    
+                                    <button onClick={() => handleShareScope('All')} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded-[20px] font-black text-gray-800 dark:text-gray-200 flex items-center gap-3 transition-colors">
+                                        <div className="w-6 flex justify-center"><i className="fa-solid fa-list-check text-gray-500 text-base"></i></div> Complete Summary
                                     </button>
-                                    <button onClick={() => handleCopy('insights')} className="w-full text-left px-5 py-4 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl font-black text-gray-700 dark:text-gray-300 flex items-center gap-4 transition-colors">
-                                        <div className="bg-gray-100 dark:bg-[#222] w-8 h-8 rounded-full flex items-center justify-center"><i className="fa-regular fa-copy text-sm text-gray-500"></i></div>
-                                        Copy to Clipboard
+                                    <button onClick={() => handleShareScope(user1Name)} className="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-[20px] font-black text-blue-700 dark:text-blue-400 flex items-center gap-3 transition-colors">
+                                        <div className="w-6 flex justify-center"><i className="fa-solid fa-user text-blue-500 text-base"></i></div> {user1Name}'s Breakdown
+                                    </button>
+                                    <button onClick={() => handleShareScope(user2Name)} className="w-full text-left px-4 py-3 text-sm hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-[20px] font-black text-purple-700 dark:text-purple-400 flex items-center gap-3 transition-colors">
+                                        <div className="w-6 flex justify-center"><i className="fa-solid fa-user text-purple-500 text-base"></i></div> {user2Name}'s Breakdown
+                                    </button>
+                                    <button onClick={() => handleShareScope('Cards')} className="w-full text-left px-4 py-3 text-sm hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded-[20px] font-black text-teal-700 dark:text-teal-400 flex items-center gap-3 transition-colors">
+                                        <div className="w-6 flex justify-center"><i className="fa-regular fa-credit-card text-teal-500 text-base"></i></div> Credit Cards Only
+                                    </button>
+                                    <button onClick={() => handleShareScope('Household')} className="w-full text-left px-4 py-3 text-sm hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-[20px] font-black text-amber-700 dark:text-amber-400 flex items-center gap-3 transition-colors">
+                                        <div className="w-6 flex justify-center"><i className="fa-solid fa-house text-amber-500 text-base"></i></div> Household Only
                                     </button>
                                 </div>
                             )}
