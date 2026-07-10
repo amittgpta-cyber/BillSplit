@@ -162,6 +162,7 @@
             const [historyMonth, setHistoryMonth] = useState('');
             const [searchQuery, setSearchQuery] = useState('');
             const [timeframe, setTimeframe] = useState('Rolling 12');
+            const [isVarianceExpanded, setIsVarianceExpanded] = useState(false);
 
             const rules = useMemo(() => ({
                 cards: { 'HDFC Swiggy': user2Name, 'Axis Airtel': user1Name },
@@ -1551,50 +1552,62 @@
 
                                         {/* MoM Variance Engine */}
                                         {varianceData && (
-                                            <div className="bg-white dark:bg-[#1e1e1e] p-6 rounded-[32px] border border-gray-100 dark:border-[#333] shadow-sm mt-6 fade-in relative overflow-hidden">
-                                                <h4 className="font-black text-gray-800 dark:text-gray-100 text-sm tracking-tight mb-5 border-b border-gray-50 dark:border-[#252525] pb-3 flex items-center">
-                                                    <i className="fa-solid fa-code-compare mr-2 text-blue-500"></i>MoM Variance Engine
-                                                    <span className="text-[9px] font-bold text-gray-400 bg-gray-50 dark:bg-[#252525] px-2 py-1 rounded ml-3 uppercase tracking-widest border border-gray-100 dark:border-[#333]">
-                                                        {formatMonthName(varianceData.prevMonth)} <i className="fa-solid fa-arrow-right mx-1 opacity-50"></i> {formatMonthName(varianceData.month)}
-                                                    </span>
-                                                </h4>
-                                                
-                                                <div className="space-y-3 relative z-10 mb-5">
-                                                    {[
-                                                        {label: 'Gross Total Spends', val: varianceData.total, icon: 'fa-money-bill-wave'}, 
-                                                        {label: 'Credit Card Overheads', val: varianceData.cc, icon: 'fa-credit-card'},
-                                                        {label: 'Household Baseline', val: varianceData.hh, icon: 'fa-house'}, 
-                                                        {label: 'Ad-hoc Spikes', val: varianceData.adhoc, icon: 'fa-tag'}
-                                                    ].map((v, i) => (
-                                                        <div key={i} className="flex justify-between items-center text-xs font-bold p-3 bg-gray-50 dark:bg-[#121212] rounded-[16px] border border-transparent hover:border-gray-100 dark:hover:border-[#333] transition-all">
-                                                            <span className="text-gray-600 dark:text-gray-400 flex items-center gap-2"><i className={`fa-solid ${v.icon} opacity-50 w-4`}></i> {v.label}</span>
-                                                            <span className={`flex items-center gap-1.5 ${v.val > 0 ? 'text-red-500' : (v.val < 0 ? 'text-green-500' : 'text-gray-400')}`}>
-                                                                {v.val > 0 ? <i className="fa-solid fa-arrow-trend-up text-[10px]"></i> : (v.val < 0 ? <i className="fa-solid fa-arrow-trend-down text-[10px]"></i> : '- ')} 
-                                                                {formatMoney(Math.abs(v.val))}
-                                                            </span>
-                                                        </div>
-                                                    ))}
+                                            <div className="bg-white dark:bg-[#1e1e1e] p-6 rounded-[32px] border border-gray-100 dark:border-[#333] shadow-sm mt-6 fade-in relative overflow-hidden transition-all duration-300">
+                                                <div 
+                                                    className="flex justify-between items-center cursor-pointer select-none border-b border-gray-50 dark:border-[#252525] pb-3 mb-2"
+                                                    onClick={() => setIsVarianceExpanded(!isVarianceExpanded)}
+                                                >
+                                                    <h4 className="font-black text-gray-800 dark:text-gray-100 text-sm tracking-tight flex items-center">
+                                                        <i className="fa-solid fa-code-compare mr-2 text-blue-500"></i>MoM Variance
+                                                        <span className="text-[9px] font-bold text-gray-400 bg-gray-50 dark:bg-[#252525] px-2 py-1 rounded ml-3 uppercase tracking-widest border border-gray-100 dark:border-[#333]">
+                                                            {formatMonthName(varianceData.prevMonth)} <i className="fa-solid fa-arrow-right mx-1 opacity-50"></i> {formatMonthName(varianceData.month)}
+                                                        </span>
+                                                    </h4>
+                                                    <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors w-8 h-8 rounded-full flex items-center justify-center bg-gray-50 dark:bg-[#252525]">
+                                                        <i className={`fa-solid fa-chevron-${isVarianceExpanded ? 'up' : 'down'} text-xs`}></i>
+                                                    </button>
                                                 </div>
-
-                                                {/* Primary Drivers Breakdown */}
-                                                {varianceData.topDrivers && varianceData.topDrivers.length > 0 && (
-                                                    <div className="pt-4 border-t border-gray-100 dark:border-[#333]">
-                                                        <h5 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Primary Drivers</h5>
-                                                        <div className="space-y-2.5">
-                                                            {varianceData.topDrivers.map((d, i) => (
-                                                                <div key={i} className="flex justify-between items-center text-xs bg-gray-50/50 dark:bg-[#121212]/50 p-2 rounded-xl border border-gray-100 dark:border-[#252525]">
-                                                                    <span className="text-gray-700 dark:text-gray-300 font-medium truncate pr-3 flex items-center gap-2">
-                                                                        {d.diff > 0 ? <span className="w-1.5 h-1.5 rounded-full bg-red-500 block"></span> : <span className="w-1.5 h-1.5 rounded-full bg-green-500 block"></span>}
-                                                                        {d.desc}
-                                                                        {d.isNew && <span className="text-[8px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-black uppercase">New</span>}
-                                                                        {d.isRemoved && <span className="text-[8px] bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded font-black uppercase">Ended</span>}
-                                                                    </span>
-                                                                    <span className={`font-black ${d.diff > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                                                        {d.diff > 0 ? '+' : '-'}{formatMoney(Math.abs(d.diff))}
+                                                
+                                                {isVarianceExpanded && (
+                                                    <div className="spring-up pt-3">
+                                                        <div className="space-y-3 relative z-10 mb-5">
+                                                            {[
+                                                                {label: 'Gross Total Spends', val: varianceData.total, icon: 'fa-money-bill-wave'}, 
+                                                                {label: 'Credit Card Overheads', val: varianceData.cc, icon: 'fa-credit-card'},
+                                                                {label: 'Household Baseline', val: varianceData.hh, icon: 'fa-house'}, 
+                                                                {label: 'Ad-hoc Spikes', val: varianceData.adhoc, icon: 'fa-tag'}
+                                                            ].map((v, i) => (
+                                                                <div key={i} className="flex justify-between items-center text-xs font-bold p-3 bg-gray-50 dark:bg-[#121212] rounded-[16px] border border-transparent hover:border-gray-100 dark:hover:border-[#333] transition-all">
+                                                                    <span className="text-gray-600 dark:text-gray-400 flex items-center gap-2"><i className={`fa-solid ${v.icon} opacity-50 w-4`}></i> {v.label}</span>
+                                                                    <span className={`flex items-center gap-1.5 ${v.val > 0 ? 'text-red-500' : (v.val < 0 ? 'text-green-500' : 'text-gray-400')}`}>
+                                                                        {v.val > 0 ? <i className="fa-solid fa-arrow-trend-up text-[10px]"></i> : (v.val < 0 ? <i className="fa-solid fa-arrow-trend-down text-[10px]"></i> : '- ')} 
+                                                                        {formatMoney(Math.abs(v.val))}
                                                                     </span>
                                                                 </div>
                                                             ))}
                                                         </div>
+
+                                                        {/* Primary Drivers Breakdown */}
+                                                        {varianceData.topDrivers && varianceData.topDrivers.length > 0 && (
+                                                            <div className="pt-4 border-t border-gray-100 dark:border-[#333]">
+                                                                <h5 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Primary Drivers</h5>
+                                                                <div className="space-y-2.5">
+                                                                    {varianceData.topDrivers.map((d, i) => (
+                                                                        <div key={i} className="flex justify-between items-center text-xs bg-gray-50/50 dark:bg-[#121212]/50 p-2 rounded-xl border border-gray-100 dark:border-[#252525]">
+                                                                            <span className="text-gray-700 dark:text-gray-300 font-medium truncate pr-3 flex items-center gap-2">
+                                                                                {d.diff > 0 ? <span className="w-1.5 h-1.5 rounded-full bg-red-500 block"></span> : <span className="w-1.5 h-1.5 rounded-full bg-green-500 block"></span>}
+                                                                                {d.desc}
+                                                                                {d.isNew && <span className="text-[8px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-black uppercase">New</span>}
+                                                                                {d.isRemoved && <span className="text-[8px] bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded font-black uppercase">Ended</span>}
+                                                                            </span>
+                                                                            <span className={`font-black ${d.diff > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                                                                {d.diff > 0 ? '+' : '-'}{formatMoney(Math.abs(d.diff))}
+                                                                            </span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
