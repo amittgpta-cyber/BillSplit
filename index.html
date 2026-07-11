@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +11,11 @@
     <link rel="apple-touch-icon" href="icon-192.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone@7.23.0/babel.min.js"></script>
@@ -24,6 +29,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
             -webkit-tap-highlight-color: transparent; 
             background-color: #f9fafb;
+            transition: background-color 0.3s ease;
         }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         
@@ -52,46 +58,44 @@
             --surface-tonal: #ffffff;
         }
 
-        /* AMOLED Dark Mode Overhaul */
-        @media (prefers-color-scheme: dark) {
-            body { background-color: #000000 !important; }
-            .bg-gray-50, .bg-gray-100 { background-color: #000000 !important; }
-            .bg-white { background-color: #0a0a0a !important; }
-            
-            .text-gray-800, .text-gray-700, .text-gray-900 { color: #e3e3e3 !important; }
-            .text-gray-600, .text-gray-500 { color: #a0a0a0 !important; }
-            .text-gray-400 { color: #737373 !important; }
-            
-            .border, .border-gray-200, .border-gray-100, .border-b, .border-t, .border-l-2, .border-l-4 { border-color: rgba(255,255,255,0.05) !important; }
-            input, select { background-color: #1a1a1a !important; color: #ffffff !important; border-color: transparent !important; color-scheme: dark; }
-            input:disabled, select:disabled { background-color: transparent !important; opacity: 1 !important; color: #a0a0a0 !important; -webkit-text-fill-color: #a0a0a0; }
-            
-            .bg-teal-50 { background-color: rgba(20, 83, 73, 0.15) !important; border-color: rgba(20, 83, 73, 0.3) !important; }
-            .text-teal-800, .text-teal-700, .text-teal-600 { color: #5eead4 !important; }
-            .bg-teal-800, .bg-teal-700 { background-color: #0f766e !important; color: #fff !important; }
-            
-            .bg-blue-50 { background-color: rgba(30, 58, 138, 0.15) !important; border-color: rgba(30, 58, 138, 0.3) !important; }
-            .text-blue-800, .text-blue-700, .text-blue-500 { color: #93c5fd !important; }
-            
-            .bg-purple-50 { background-color: rgba(88, 28, 135, 0.15) !important; border-color: rgba(88, 28, 135, 0.3) !important; }
-            .text-purple-800, .text-purple-700, .text-purple-500 { color: #d8b4fe !important; }
-            
-            .bg-amber-50, .bg-amber-300 { background-color: rgba(120, 53, 15, 0.2) !important; border-color: rgba(120, 53, 15, 0.3) !important; }
-            .text-amber-900, .text-amber-800, .text-amber-700 { color: #fde68a !important; }
-            
-            header, .absolute.bottom-16.right-0.bg-white, nav { background-color: rgba(10, 10, 10, 0.85) !important; border-color: rgba(255,255,255,0.05) !important; }
-            
-            .recharts-cartesian-grid-horizontal line { stroke: rgba(255,255,255,0.05) !important; }
-            .recharts-text { fill: #a0a0a0 !important; }
-            
-            :root {
-                --tooltip-bg: rgba(10, 10, 10, 0.95);
-                --tooltip-text: #e3e3e3;
-                --tooltip-border: rgba(255, 255, 255, 0.1);
-                --surface-tonal: #0a0a0a;
-            }
-            .recharts-tooltip-item { color: #e3e3e3 !important; }
+        /* AMOLED Dark Mode Overhaul tied to .dark class */
+        .dark body { background-color: #000000 !important; }
+        .dark .bg-gray-50, .dark .bg-gray-100 { background-color: #000000 !important; }
+        .dark .bg-white { background-color: #0a0a0a !important; }
+        
+        .dark .text-gray-800, .dark .text-gray-700, .dark .text-gray-900 { color: #e3e3e3 !important; }
+        .dark .text-gray-600, .dark .text-gray-500 { color: #a0a0a0 !important; }
+        .dark .text-gray-400 { color: #737373 !important; }
+        
+        .dark .border, .dark .border-gray-200, .dark .border-gray-100, .dark .border-b, .dark .border-t, .dark .border-l-2, .dark .border-l-4 { border-color: rgba(255,255,255,0.05) !important; }
+        .dark input, .dark select { background-color: #1a1a1a !important; color: #ffffff !important; border-color: transparent !important; color-scheme: dark; }
+        .dark input:disabled, .dark select:disabled { background-color: transparent !important; opacity: 1 !important; color: #a0a0a0 !important; -webkit-text-fill-color: #a0a0a0; }
+        
+        .dark .bg-teal-50 { background-color: rgba(20, 83, 73, 0.15) !important; border-color: rgba(20, 83, 73, 0.3) !important; }
+        .dark .text-teal-800, .dark .text-teal-700, .dark .text-teal-600 { color: #5eead4 !important; }
+        .dark .bg-teal-800, .dark .bg-teal-700 { background-color: #0f766e !important; color: #fff !important; }
+        
+        .dark .bg-blue-50 { background-color: rgba(30, 58, 138, 0.15) !important; border-color: rgba(30, 58, 138, 0.3) !important; }
+        .dark .text-blue-800, .dark .text-blue-700, .dark .text-blue-500 { color: #93c5fd !important; }
+        
+        .dark .bg-purple-50 { background-color: rgba(88, 28, 135, 0.15) !important; border-color: rgba(88, 28, 135, 0.3) !important; }
+        .dark .text-purple-800, .dark .text-purple-700, .dark .text-purple-500 { color: #d8b4fe !important; }
+        
+        .dark .bg-amber-50, .dark .bg-amber-300 { background-color: rgba(120, 53, 15, 0.2) !important; border-color: rgba(120, 53, 15, 0.3) !important; }
+        .dark .text-amber-900, .dark .text-amber-800, .dark .text-amber-700 { color: #fde68a !important; }
+        
+        .dark header, .dark .absolute.bottom-16.right-0.bg-white, .dark nav { background-color: rgba(10, 10, 10, 0.85) !important; border-color: rgba(255,255,255,0.05) !important; }
+        
+        .dark .recharts-cartesian-grid-horizontal line { stroke: rgba(255,255,255,0.05) !important; }
+        .dark .recharts-text { fill: #a0a0a0 !important; }
+        
+        .dark {
+            --tooltip-bg: rgba(10, 10, 10, 0.95);
+            --tooltip-text: #e3e3e3;
+            --tooltip-border: rgba(255, 255, 255, 0.1);
+            --surface-tonal: #0a0a0a;
         }
+        .dark .recharts-tooltip-item { color: #e3e3e3 !important; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -163,28 +167,28 @@
         const getCardStyle = (name) => {
             const n = (name || '').toLowerCase();
             let bg = '#1a1a1a';
-            let border = 'rgba(255,255,255,0.1)';
+            let border = '1px solid rgba(255,255,255,0.1)';
             
-            if(n.includes('regalia') || n.includes('gold')) { bg = 'linear-gradient(135deg, #000000 50%, #d4af37 50%)'; border = '#d4af37'; }
-            else if(n.includes('swiggy')) { bg = '#fc8019'; border = 'rgba(255,255,255,0.1)'; }
-            else if(n.includes('sbi') || n.includes('simplyclick')) { bg = '#294898'; border = 'rgba(255,255,255,0.1)'; }
-            else if(n.includes('tata') || n.includes('neu')) { bg = '#2a0b4d'; border = 'rgba(255,255,255,0.1)'; }
-            else if(n.includes('amazon') || n.includes('icici')) { bg = '#232f3e'; border = 'rgba(255,255,255,0.1)'; }
-            else if(n.includes('axis') || n.includes('airtel')) { bg = '#97144d'; border = 'rgba(255,255,255,0.1)'; }
+            if(n.includes('regalia') || n.includes('gold')) { bg = 'linear-gradient(135deg, #000000 50%, #d4af37 50%)'; border = '1px solid #d4af37'; }
+            else if(n.includes('swiggy')) { bg = '#fc8019'; border = '1px solid rgba(255,255,255,0.1)'; }
+            else if(n.includes('sbi') || n.includes('simplyclick')) { bg = '#294898'; border = '1px solid rgba(255,255,255,0.1)'; }
+            else if(n.includes('tata') || n.includes('neu')) { bg = '#2a0b4d'; border = '1px solid rgba(255,255,255,0.1)'; }
+            else if(n.includes('amazon') || n.includes('icici')) { bg = '#232f3e'; border = '1px solid rgba(255,255,255,0.1)'; }
+            else if(n.includes('axis') || n.includes('airtel')) { bg = '#97144d'; border = '1px solid rgba(255,255,255,0.1)'; }
 
-            return { background: bg, borderColor: border };
+            return { background: bg, border: border };
         };
 
-        const GraphicCard = ({ cName, cTotal, u1Share, u2Share, overrides, isEdit, isEditMode, handleTotalChange, updateOverride, removeOverride, addOverride, user1Name, user2Name }) => {
-            // Strictly base initial expansion ONLY on the presence of tracked total
+        const GraphicCard = ({ cName, cTotal, u1Share, u2Share, overrides, isEdit, isEditMode, handleTotalChange, updateOverride, removeOverride, addOverride, user1Name, user2Name, selectedMonth }) => {
+            // Strictly base initial expansion ONLY on the presence of tracked total, evaluated ONLY when month changes
             const [isExpanded, setIsExpanded] = useState(parseFloat(cTotal) > 0);
             
             useEffect(() => {
                 setIsExpanded(parseFloat(cTotal) > 0);
-            }, [cTotal]);
+            }, [selectedMonth]);
 
             return (
-                <div style={getCardStyle(cName)} className="rounded-[32px] shadow-lg relative text-white mb-4 transition-all hover:shadow-xl group overflow-hidden border">
+                <div style={getCardStyle(cName)} className="rounded-[32px] shadow-lg relative text-white mb-4 transition-all hover:shadow-xl group overflow-hidden">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-2xl z-0"></div>
 
                     <div className="p-5 relative z-10 flex justify-between items-center cursor-pointer select-none" onClick={() => !isEdit && setIsExpanded(!isExpanded)}>
@@ -239,6 +243,16 @@
                 try { return atob(OBFUSCATED_URL); } 
                 catch { return ""; }
             }, []);
+
+            const [theme, setTheme] = useState(() => localStorage.getItem('bs_theme') || 'dark');
+            
+            useEffect(() => {
+                if (theme === 'dark') document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+                localStorage.setItem('bs_theme', theme);
+            }, [theme]);
+
+            const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
             const [view, setView] = useState('dashboard'); 
             const [isSyncing, setIsSyncing] = useState(false);
@@ -1003,10 +1017,11 @@
                                 {id === 'pie' && (
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
-                                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={3} dataKey="value" stroke="none">
+                                            <Pie data={pieData} cx="50%" cy="45%" innerRadius={60} outerRadius={85} paddingAngle={3} dataKey="value" stroke="none">
                                                 {pieData.map((entry, idx) => <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />)}
                                             </Pie>
                                             <Tooltip formatter={(value) => formatMoney(value)} contentStyle={{ backgroundColor: 'var(--tooltip-bg)', color: 'var(--tooltip-text)', borderRadius: '20px', border: '1px solid var(--tooltip-border)', boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.15)', backdropFilter: 'blur(12px)', padding: '12px' }} itemStyle={{fontSize: '12px', fontWeight: 'bold'}} />
+                                            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '12px', fontWeight: 'bold', paddingTop: '20px'}} />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 )}
@@ -1022,14 +1037,6 @@
                                         </BarChart>
                                     </ResponsiveContainer>
                                 )}
-                                {id === 'pie' && !isMin && (
-                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                                        <div className="flex flex-col items-start justify-center gap-1.5 mt-2">
-                                            <div className="flex items-center gap-2 text-[11px] font-black text-blue-500 tracking-wide leading-none"><div className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0"></div>{user1Name}</div>
-                                            <div className="flex items-center gap-2 text-[11px] font-black text-purple-500 tracking-wide leading-none"><div className="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0"></div>{user2Name}</div>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -1040,9 +1047,14 @@
                 <div className="max-w-md mx-auto bg-gray-50 min-h-screen shadow-2xl pb-32 relative overflow-hidden">
                     <header className="bg-white/80 backdrop-blur-md text-gray-800 p-5 sticky top-0 z-30 flex justify-between items-center transition-colors">
                         <h1 className="text-2xl font-black tracking-tight"><i className="fa-solid fa-file-invoice-dollar mr-2 text-teal-600"></i>BillSplit</h1>
-                        <button onClick={() => setView('settings')} className="bg-gray-100 dark:bg-[#252525] hover:bg-gray-200 dark:hover:bg-[#333] text-gray-600 dark:text-gray-300 w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-[0.90] active:rotate-45">
-                            <i className="fa-solid fa-gear text-lg"></i>
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <button onClick={toggleTheme} className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors active:scale-95 w-10 h-10 flex items-center justify-center">
+                                <i className={`fa-solid ${theme === 'dark' ? 'fa-sun text-yellow-500' : 'fa-moon'} text-xl`}></i>
+                            </button>
+                            <button onClick={() => setView('settings')} className="bg-gray-100 dark:bg-[#252525] hover:bg-gray-200 dark:hover:bg-[#333] text-gray-600 dark:text-gray-300 w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-[0.90] active:rotate-45">
+                                <i className="fa-solid fa-gear text-lg"></i>
+                            </button>
+                        </div>
                     </header>
 
                     <main className="p-4 fade-in relative z-10">
@@ -1080,7 +1092,7 @@
                                                 {sortedCardList.length === 0 && <p className="text-sm text-gray-400 italic ml-2">No cards available. Check Settings.</p>}
                                                 <div className="space-y-4">
                                                     {sortedCardList.map(card => formData[card] && (
-                                                        <GraphicCard key={card} cName={card} cTotal={formData[card].total} overrides={formData[card].overrides} isEdit={true} isEditMode={isEditMode} handleTotalChange={handleTotalChange} updateOverride={updateOverride} removeOverride={removeOverride} addOverride={addOverride} user1Name={user1Name} user2Name={user2Name} />
+                                                        <GraphicCard key={card} cName={card} cTotal={formData[card].total} overrides={formData[card].overrides} isEdit={true} isEditMode={isEditMode} handleTotalChange={handleTotalChange} updateOverride={updateOverride} removeOverride={removeOverride} addOverride={addOverride} user1Name={user1Name} user2Name={user2Name} selectedMonth={selectedMonth} />
                                                     ))}
                                                 </div>
                                             </div>
@@ -1182,7 +1194,7 @@
                                                 <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 mt-6">Graphic Breakdown</h4>
                                                 <div className="space-y-4">
                                                     {activeCardsData.cards.filter(c => c.cardName !== 'Offline & Fixed Spends' && c.cardName !== 'Settle Borrow').map((c, i) => (
-                                                        <GraphicCard key={i} cName={c.cardName} cTotal={c.total} u1Share={c.u1Share} u2Share={c.u2Share} overrides={c.overrides} isEdit={false} user1Name={user1Name} user2Name={user2Name} />
+                                                        <GraphicCard key={i} cName={c.cardName} cTotal={c.total} u1Share={c.u1Share} u2Share={c.u2Share} overrides={c.overrides} isEdit={false} user1Name={user1Name} user2Name={user2Name} selectedMonth={selectedMonth} />
                                                     ))}
                                                 </div>
                                             </>
@@ -1345,7 +1357,7 @@
                                                 <div className={`space-y-4 ${!searchQuery.trim() ? 'mt-8 border-t border-gray-100 dark:border-[#333] pt-6' : ''}`}>
                                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 ml-1">{searchQuery.trim() ? 'Search Results' : 'Graphic Breakdown'}</p>
                                                     {historyMonthData.cards.filter(c => c[1] !== 'Offline & Fixed Spends' && c[1] !== 'Settle Borrow').map((c, i) => (
-                                                        <GraphicCard key={i} cName={c[1]} cTotal={c[2]} u1Share={c[3]} u2Share={c[4]} overrides={c[5] !== 'None' ? String(c[5]).split(' | ') : []} isEdit={false} user1Name={user1Name} user2Name={user2Name} />
+                                                        <GraphicCard key={i} cName={c[1]} cTotal={c[2]} u1Share={c[3]} u2Share={c[4]} overrides={c[5] !== 'None' ? String(c[5]).split(' | ') : []} isEdit={false} user1Name={user1Name} user2Name={user2Name} selectedMonth={historyMonth} />
                                                     ))}
                                                     
                                                     {historyMonthData.cards.filter(c => c[1] === 'Offline & Fixed Spends' || c[1] === 'Settle Borrow').map((c, i) => (
@@ -1520,8 +1532,8 @@
                     </nav>
 
                     {snapshotPayload && (
-                        <div className="fixed inset-0 opacity-0 z-[-1] pointer-events-none flex items-start justify-start p-8 overflow-hidden">
-                            <div id="offscreen-render" className="bg-[#1a1a1a] rounded-[32px] p-8 w-[500px] text-white shadow-2xl border border-[#333]">
+                        <div className="fixed inset-0 opacity-0 pointer-events-none z-[-50] flex items-start justify-start p-8 overflow-hidden">
+                            <div id="offscreen-render" className="bg-[#1a1a1a] rounded-[32px] p-8 w-[800px] text-white shadow-2xl border border-[#333]">
                                 <div className="flex items-center gap-4 mb-8 pb-5 border-b border-[#333]">
                                     <i className="fa-solid fa-chart-pie text-teal-400 text-3xl"></i>
                                     <h2 className="text-2xl font-black">{snapshotPayload.scope === 'All' ? `${snapshotPayload.monthName} Summary` : (snapshotPayload.scope.includes('Only') ? snapshotPayload.scope : `${snapshotPayload.scope}'s Breakdown`)}</h2>
@@ -1545,9 +1557,9 @@
                                         </div>
                                         <div className="space-y-3.5">
                                             {snapshotPayload.hhSpends.map((item, i) => (
-                                                <div key={i} className="flex justify-between text-[15px] text-gray-300 py-1.5">
-                                                    <span className="flex items-center gap-3 truncate pr-2 leading-loose"><i className="fa-solid fa-angle-right text-[#14b8a6]/70 text-[11px]"></i>{item.desc}</span>
-                                                    <span className="font-bold text-white leading-loose">{formatMoney(item.amount)}</span>
+                                                <div key={i} className="flex justify-between text-[18px] text-gray-300 py-2 border-b border-[#333]/50 last:border-0">
+                                                    <span className="flex items-center gap-4 truncate pr-4 leading-loose pb-1"><i className="fa-solid fa-angle-right text-[#14b8a6]/70 text-[14px]"></i>{item.desc}</span>
+                                                    <span className="font-bold text-white whitespace-nowrap flex-shrink-0 leading-loose pb-1">{formatMoney(item.amount)}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -1560,9 +1572,9 @@
                                         </div>
                                         <div className="space-y-3.5">
                                             {snapshotPayload.ccSpends.map((item, i) => (
-                                                <div key={i} className="flex justify-between text-[15px] text-gray-300 py-1.5">
-                                                    <span className="flex items-center gap-3 truncate pr-2 leading-loose"><i className="fa-regular fa-credit-card text-[#3b82f6]/70 text-[11px]"></i>{item.desc}</span>
-                                                    <span className="font-bold text-white leading-loose">{formatMoney(item.amount)}</span>
+                                                <div key={i} className="flex justify-between text-[18px] text-gray-300 py-2 border-b border-[#333]/50 last:border-0">
+                                                    <span className="flex items-center gap-4 truncate pr-4 leading-loose pb-1"><i className="fa-regular fa-credit-card text-[#3b82f6]/70 text-[14px]"></i>{item.desc}</span>
+                                                    <span className="font-bold text-white whitespace-nowrap flex-shrink-0 leading-loose pb-1">{formatMoney(item.amount)}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -1575,9 +1587,9 @@
                                         </div>
                                         <div className="space-y-3.5">
                                             {snapshotPayload.adhocSpends.map((item, i) => (
-                                                <div key={i} className="flex justify-between text-[15px] text-gray-300 py-1.5">
-                                                    <span className="flex items-center gap-3 truncate pr-2 leading-loose"><i className="fa-solid fa-tag text-[#a855f7]/70 text-[11px]"></i>{item.desc}</span>
-                                                    <span className="font-bold text-white leading-loose">{formatMoney(item.amount)}</span>
+                                                <div key={i} className="flex justify-between text-[18px] text-gray-300 py-2 border-b border-[#333]/50 last:border-0">
+                                                    <span className="flex items-center gap-4 truncate pr-4 leading-loose pb-1"><i className="fa-solid fa-tag text-[#a855f7]/70 text-[14px]"></i>{item.desc}</span>
+                                                    <span className="font-bold text-white whitespace-nowrap flex-shrink-0 leading-loose pb-1">{formatMoney(item.amount)}</span>
                                                 </div>
                                             ))}
                                         </div>
