@@ -191,9 +191,9 @@
                 <div style={getCardStyle(cName)} className="rounded-[32px] shadow-lg relative text-white mb-4 transition-all hover:shadow-xl group overflow-hidden">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-2xl z-0"></div>
 
-                    <div className="p-5 relative z-10 flex justify-between items-center cursor-pointer select-none" onClick={() => !isEdit && setIsExpanded(!isExpanded)}>
+                    <div className="p-5 relative z-10 flex justify-between items-center cursor-pointer select-none" onClick={() => setIsExpanded(!isExpanded)}>
                         <span className="font-black text-lg text-white drop-shadow-md tracking-tight flex items-center gap-3">
-                            {!isEdit && <i className={`fa-solid fa-chevron-${isExpanded ? 'up' : 'down'} text-[10px] bg-white/10 w-6 h-6 flex items-center justify-center rounded-full transition-transform`}></i>}
+                            <i className={`fa-solid fa-chevron-${isExpanded ? 'up' : 'down'} text-[10px] bg-white/10 w-6 h-6 flex items-center justify-center rounded-full transition-transform`}></i>
                             {cName}
                         </span>
                         {isEdit ? (
@@ -292,6 +292,7 @@
             const [isWideTimeline, setIsWideTimeline] = useState(false);
 
             const [cardList, setCardList] = useState([]);
+            const [displayCards, setDisplayCards] = useState([]);
             const [newCardName, setNewCardName] = useState('');
             const [isAddingCard, setIsAddingCard] = useState(false);
             
@@ -372,6 +373,13 @@
             useEffect(() => {
                 if (!selectedMonth) return;
                 const monthCards = fetchedCards.filter(c => c && c[0] && toYYYYMM(c[0]) === selectedMonth);
+                
+                const currentAmounts = {};
+                monthCards.forEach(c => currentAmounts[c[1]] = parseFloat(c[2]) || 0);
+                
+                const activeCards = sortedCardList.filter(c => currentAmounts[c] > 0);
+                const inactiveCards = sortedCardList.filter(c => !(currentAmounts[c] > 0));
+                setDisplayCards([...activeCards, ...inactiveCards]);
                 
                 setFormData(prev => {
                     const updated = {};
@@ -1089,9 +1097,9 @@
                                         <div className={`transition-opacity duration-300 ${!isEditMode ? 'opacity-90' : ''}`}>
                                             <div>
                                                 <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 ml-2">Credit Card Bills</h2>
-                                                {sortedCardList.length === 0 && <p className="text-sm text-gray-400 italic ml-2">No cards available. Check Settings.</p>}
+                                                {displayCards.length === 0 && <p className="text-sm text-gray-400 italic ml-2">No cards available. Check Settings.</p>}
                                                 <div className="space-y-4">
-                                                    {sortedCardList.map(card => formData[card] && (
+                                                    {displayCards.map(card => formData[card] && (
                                                         <GraphicCard key={card} cName={card} cTotal={formData[card].total} overrides={formData[card].overrides} isEdit={true} isEditMode={isEditMode} handleTotalChange={handleTotalChange} updateOverride={updateOverride} removeOverride={removeOverride} addOverride={addOverride} user1Name={user1Name} user2Name={user2Name} selectedMonth={selectedMonth} />
                                                     ))}
                                                 </div>
@@ -1533,7 +1541,7 @@
 
                     {snapshotPayload && (
                         <div className="fixed inset-0 opacity-0 pointer-events-none z-[-50] flex items-start justify-start p-8 overflow-hidden">
-                            <div id="offscreen-render" className="bg-[#1a1a1a] rounded-[32px] p-8 w-[800px] text-white shadow-2xl border border-[#333]">
+                            <div id="offscreen-render" className="bg-[#1a1a1a] rounded-[32px] p-8 w-[500px] text-white shadow-2xl border border-[#333]">
                                 <div className="flex items-center gap-4 mb-8 pb-5 border-b border-[#333]">
                                     <i className="fa-solid fa-chart-pie text-teal-400 text-3xl"></i>
                                     <h2 className="text-2xl font-black">{snapshotPayload.scope === 'All' ? `${snapshotPayload.monthName} Summary` : (snapshotPayload.scope.includes('Only') ? snapshotPayload.scope : `${snapshotPayload.scope}'s Breakdown`)}</h2>
@@ -1557,8 +1565,8 @@
                                         </div>
                                         <div className="space-y-3.5">
                                             {snapshotPayload.hhSpends.map((item, i) => (
-                                                <div key={i} className="flex justify-between text-[18px] text-gray-300 py-2 border-b border-[#333]/50 last:border-0">
-                                                    <span className="flex items-center gap-4 truncate pr-4 leading-loose pb-1"><i className="fa-solid fa-angle-right text-[#14b8a6]/70 text-[14px]"></i>{item.desc}</span>
+                                                <div key={i} className="flex justify-between text-[16px] text-gray-300 py-1.5 border-b border-[#333]/50 last:border-0">
+                                                    <span className="flex items-center gap-4 truncate pr-4 leading-loose pb-1"><i className="fa-solid fa-angle-right text-[#14b8a6]/70 text-[12px]"></i>{item.desc}</span>
                                                     <span className="font-bold text-white whitespace-nowrap flex-shrink-0 leading-loose pb-1">{formatMoney(item.amount)}</span>
                                                 </div>
                                             ))}
@@ -1572,8 +1580,8 @@
                                         </div>
                                         <div className="space-y-3.5">
                                             {snapshotPayload.ccSpends.map((item, i) => (
-                                                <div key={i} className="flex justify-between text-[18px] text-gray-300 py-2 border-b border-[#333]/50 last:border-0">
-                                                    <span className="flex items-center gap-4 truncate pr-4 leading-loose pb-1"><i className="fa-regular fa-credit-card text-[#3b82f6]/70 text-[14px]"></i>{item.desc}</span>
+                                                <div key={i} className="flex justify-between text-[16px] text-gray-300 py-1.5 border-b border-[#333]/50 last:border-0">
+                                                    <span className="flex items-center gap-4 truncate pr-4 leading-loose pb-1"><i className="fa-regular fa-credit-card text-[#3b82f6]/70 text-[12px]"></i>{item.desc}</span>
                                                     <span className="font-bold text-white whitespace-nowrap flex-shrink-0 leading-loose pb-1">{formatMoney(item.amount)}</span>
                                                 </div>
                                             ))}
@@ -1587,8 +1595,8 @@
                                         </div>
                                         <div className="space-y-3.5">
                                             {snapshotPayload.adhocSpends.map((item, i) => (
-                                                <div key={i} className="flex justify-between text-[18px] text-gray-300 py-2 border-b border-[#333]/50 last:border-0">
-                                                    <span className="flex items-center gap-4 truncate pr-4 leading-loose pb-1"><i className="fa-solid fa-tag text-[#a855f7]/70 text-[14px]"></i>{item.desc}</span>
+                                                <div key={i} className="flex justify-between text-[16px] text-gray-300 py-1.5 border-b border-[#333]/50 last:border-0">
+                                                    <span className="flex items-center gap-4 truncate pr-4 leading-loose pb-1"><i className="fa-solid fa-tag text-[#a855f7]/70 text-[12px]"></i>{item.desc}</span>
                                                     <span className="font-bold text-white whitespace-nowrap flex-shrink-0 leading-loose pb-1">{formatMoney(item.amount)}</span>
                                                 </div>
                                             ))}
