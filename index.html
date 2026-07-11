@@ -807,7 +807,7 @@
                     setTimeout(() => {
                         const el = document.getElementById('offscreen-render');
                         if (el) {
-                            window.html2canvas(el, { scale: 4, backgroundColor: null }).then(canvas => {
+                            window.html2canvas(el, { scale: 5, backgroundColor: null }).then(canvas => {
                                 canvas.toBlob(blob => {
                                     const file = new File([blob], `${snapshotPayload.scope}-breakdown.png`, { type: 'image/png' });
                                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1541,18 +1541,21 @@
 
                     {snapshotPayload && (
                         <div className="fixed inset-0 opacity-0 pointer-events-none z-[-50] flex items-start justify-start p-8 overflow-hidden">
-                            <div id="offscreen-render" className="bg-[#1a1a1a] rounded-[32px] p-8 w-[500px] text-white shadow-2xl border border-[#333]">
-                                <div className="flex items-center gap-4 mb-8 pb-5 border-b border-[#333]">
-                                    <i className="fa-solid fa-chart-pie text-teal-400 text-3xl"></i>
-                                    <h2 className="text-2xl font-black">{snapshotPayload.scope === 'All' ? `${snapshotPayload.monthName} Summary` : (snapshotPayload.scope.includes('Only') ? snapshotPayload.scope : `${snapshotPayload.scope}'s Breakdown`)}</h2>
+                            <div id="offscreen-render" className="bg-[#1a1a1a] rounded-[36px] p-10 w-[640px] text-white shadow-2xl border border-[#333]">
+                                <div className="flex items-center justify-between mb-10 pb-6 border-b border-[#333]">
+                                    <div className="flex items-center gap-4">
+                                        <i className="fa-solid fa-chart-pie text-teal-400 text-4xl"></i>
+                                        <h2 className="text-3xl font-black tracking-tight">{snapshotPayload.scope === 'All' ? `${snapshotPayload.monthName} Summary` : (snapshotPayload.scope.includes('Only') ? snapshotPayload.scope : `${snapshotPayload.scope}'s Breakdown`)}</h2>
+                                    </div>
+                                    <div className="w-10 h-10 rounded-full bg-[#252525] flex items-center justify-center text-gray-400"><i className="fa-solid fa-xmark text-lg"></i></div>
                                 </div>
                                 {snapshotPayload.scope === 'All' && (
                                     <div className="mb-8">
                                         <div className="flex justify-between items-end mb-5">
                                             <span className="text-gray-400 text-[11px] font-black uppercase tracking-widest">Total Spends</span>
-                                            <span className="text-3xl font-black tracking-tighter">{formatMoney(snapshotPayload.mTotal)}</span>
+                                            <span className="text-4xl font-black tracking-tighter">{formatMoney(snapshotPayload.mTotal)}</span>
                                         </div>
-                                        <div className="flex justify-between text-base border-b border-[#333] pb-5">
+                                        <div className="flex justify-between text-lg border-b border-[#333] pb-5">
                                             <span><span className="text-blue-400 font-bold mr-2">{user1Name}</span>{formatMoney(snapshotPayload.mU1)}</span>
                                             <span><span className="text-purple-400 font-bold mr-2">{user2Name}</span>{formatMoney(snapshotPayload.mU2)}</span>
                                         </div>
@@ -1563,11 +1566,11 @@
                                         <div className="flex justify-between items-center text-[#14b8a6] text-sm font-black uppercase tracking-widest mb-4 border-b border-[#14b8a6]/20 pb-3">
                                             <span>Household Spends</span><span>{formatMoney(snapshotPayload.hhTotal)}</span>
                                         </div>
-                                        <div className="space-y-3.5">
+                                        <div className="space-y-1">
                                             {snapshotPayload.hhSpends.map((item, i) => (
-                                                <div key={i} className="flex justify-between text-[16px] text-gray-300 py-1.5 border-b border-[#333]/50 last:border-0">
-                                                    <span className="flex items-center gap-4 truncate pr-4 leading-loose pb-1"><i className="fa-solid fa-angle-right text-[#14b8a6]/70 text-[12px]"></i>{item.desc}</span>
-                                                    <span className="font-bold text-white whitespace-nowrap flex-shrink-0 leading-loose pb-1">{formatMoney(item.amount)}</span>
+                                                <div key={i} className="flex justify-between text-[20px] text-gray-300 py-1.5">
+                                                    <span className="flex items-center gap-4 truncate pr-4 leading-snug pb-1.5 pt-1"><i className="fa-solid fa-angle-right text-[#14b8a6]/70 text-[15px]"></i>{item.desc}</span>
+                                                    <span className="font-bold text-white whitespace-nowrap flex-shrink-0 leading-snug pb-1.5 pt-1">{formatMoney(item.amount)}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -1578,11 +1581,11 @@
                                         <div className="flex justify-between items-center text-[#3b82f6] text-sm font-black uppercase tracking-widest mb-4 border-b border-[#3b82f6]/20 pb-3">
                                             <span>Credit Card Spends</span><span>{formatMoney(snapshotPayload.ccTotal)}</span>
                                         </div>
-                                        <div className="space-y-3.5">
+                                        <div className="space-y-1">
                                             {snapshotPayload.ccSpends.map((item, i) => (
-                                                <div key={i} className="flex justify-between text-[16px] text-gray-300 py-1.5 border-b border-[#333]/50 last:border-0">
-                                                    <span className="flex items-center gap-4 truncate pr-4 leading-loose pb-1"><i className="fa-regular fa-credit-card text-[#3b82f6]/70 text-[12px]"></i>{item.desc}</span>
-                                                    <span className="font-bold text-white whitespace-nowrap flex-shrink-0 leading-loose pb-1">{formatMoney(item.amount)}</span>
+                                                <div key={i} className="flex justify-between text-[20px] text-gray-300 py-1.5">
+                                                    <span className="flex items-center gap-4 truncate pr-4 leading-snug pb-1.5 pt-1"><i className="fa-regular fa-credit-card text-[#3b82f6]/70 text-[15px]"></i>{item.desc}</span>
+                                                    <span className="font-bold text-white whitespace-nowrap flex-shrink-0 leading-snug pb-1.5 pt-1">{formatMoney(item.amount)}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -1593,11 +1596,11 @@
                                         <div className="flex justify-between items-center text-[#a855f7] text-sm font-black uppercase tracking-widest mb-4 border-b border-[#a855f7]/20 pb-3">
                                             <span>Ad-hoc Spends</span><span>{formatMoney(snapshotPayload.adhocTotal)}</span>
                                         </div>
-                                        <div className="space-y-3.5">
+                                        <div className="space-y-1">
                                             {snapshotPayload.adhocSpends.map((item, i) => (
-                                                <div key={i} className="flex justify-between text-[16px] text-gray-300 py-1.5 border-b border-[#333]/50 last:border-0">
-                                                    <span className="flex items-center gap-4 truncate pr-4 leading-loose pb-1"><i className="fa-solid fa-tag text-[#a855f7]/70 text-[12px]"></i>{item.desc}</span>
-                                                    <span className="font-bold text-white whitespace-nowrap flex-shrink-0 leading-loose pb-1">{formatMoney(item.amount)}</span>
+                                                <div key={i} className="flex justify-between text-[20px] text-gray-300 py-1.5">
+                                                    <span className="flex items-center gap-4 truncate pr-4 leading-snug pb-1.5 pt-1"><i className="fa-solid fa-tag text-[#a855f7]/70 text-[15px]"></i>{item.desc}</span>
+                                                    <span className="font-bold text-white whitespace-nowrap flex-shrink-0 leading-snug pb-1.5 pt-1">{formatMoney(item.amount)}</span>
                                                 </div>
                                             ))}
                                         </div>
