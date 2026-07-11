@@ -106,6 +106,36 @@
 
         const OBFUSCATED_URL = "aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J3N20wazI3b0NfQkozRnZaNkotUGUtWE1pV3hwX2tlVXJWRnNZVl9oeUNwdGx1dFVlVTFmVFRlbzVTdG1uZXF0UWUvZXhlYw==";
 
+        // Global Utility Functions
+        const toYYYYMM = (dateVal) => {
+            if (!dateVal) return '';
+            const s = String(dateVal);
+            if (s.includes('T')) {
+                const d = new Date(s);
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            }
+            const parts = s.split('-');
+            if (parts.length >= 2) return `${parts[0]}-${parts[1].padStart(2, '0')}`;
+            return s.substring(0, 7); 
+        };
+
+        const formatMonthName = (dateStr) => {
+            if (!dateStr) return '';
+            try {
+                const clean = toYYYYMM(dateStr);
+                const parts = clean.split('-');
+                if (parts.length >= 2) return `${new Date(parts[0], parts[1] - 1).toLocaleDateString('en-US', { month: 'short' })}'${parts[0].slice(-2)}`;
+                return dateStr;
+            } catch (e) { return dateStr; }
+        };
+
+        const formatMoney = (amount) => {
+            const num = parseFloat(amount);
+            if (isNaN(num)) return '---';
+            const hasDecimal = num % 1 !== 0;
+            return `₹ ${num.toLocaleString('en-IN', { minimumFractionDigits: hasDecimal ? 2 : 0, maximumFractionDigits: hasDecimal ? 2 : 0 })}`;
+        };
+
         const formatInputMoney = (val) => {
             if (val === null || val === undefined || val === '') return '';
             const clean = String(val).replace(/,/g, '');
@@ -122,11 +152,11 @@
             return isNaN(clean) ? '' : clean;
         };
 
-        const formatMoney = (amount) => {
-            const num = parseFloat(amount);
-            if (isNaN(num)) return '---';
-            const hasDecimal = num % 1 !== 0;
-            return `₹ ${num.toLocaleString('en-IN', { minimumFractionDigits: hasDecimal ? 2 : 0, maximumFractionDigits: hasDecimal ? 2 : 0 })}`;
+        const formatOverrideString = (ovStr) => {
+            if (!ovStr) return '';
+            const match = ovStr.match(/(.*)\s-\s₹([\d.,]+)\s\((.*)\)/);
+            if (match) return `${match[1].trim()} - ${formatMoney(match[2].replace(/,/g,''))} (${match[3].trim()})`;
+            return ovStr;
         };
 
         const getCardStyle = (name) => {
@@ -134,21 +164,14 @@
             let bg = 'linear-gradient(135deg, #171717 0%, #0a0a0a 100%)';
             let border = 'rgba(255,255,255,0.1)';
             
-            if(n.includes('regalia') || n.includes('gold')) { bg = 'linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)'; border = 'rgba(212, 175, 55, 0.4)'; }
-            else if(n.includes('swiggy')) { bg = 'linear-gradient(135deg, #431407 0%, #000000 100%)'; border = 'rgba(249, 115, 22, 0.4)'; }
-            else if(n.includes('sbi') || n.includes('simplyclick')) { bg = 'linear-gradient(135deg, #064e3b 0%, #083344 100%)'; border = 'rgba(20, 184, 166, 0.4)'; }
+            if(n.includes('regalia') || n.includes('gold')) { bg = 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)'; border = 'rgba(212, 175, 55, 0.4)'; }
+            else if(n.includes('swiggy')) { bg = 'linear-gradient(135deg, #000000 0%, #431407 100%)'; border = 'rgba(249, 115, 22, 0.4)'; }
+            else if(n.includes('sbi') || n.includes('simplyclick')) { bg = 'linear-gradient(135deg, #083344 0%, #064e3b 100%)'; border = 'rgba(20, 184, 166, 0.4)'; }
             else if(n.includes('tata') || n.includes('neu')) { bg = 'linear-gradient(135deg, #2e1065 0%, #000000 100%)'; border = 'rgba(168, 85, 247, 0.4)'; }
-            else if(n.includes('amazon') || n.includes('icici')) { bg = 'linear-gradient(135deg, #450a0a 0%, #171717 100%)'; border = 'rgba(245, 158, 11, 0.4)'; }
-            else if(n.includes('axis') || n.includes('airtel')) { bg = 'linear-gradient(135deg, #7f1d1d 0%, #000000 100%)'; border = 'rgba(220, 38, 38, 0.4)'; }
+            else if(n.includes('amazon') || n.includes('icici')) { bg = 'linear-gradient(135deg, #271c19 0%, #000000 100%)'; border = 'rgba(245, 158, 11, 0.4)'; }
+            else if(n.includes('axis') || n.includes('airtel')) { bg = 'linear-gradient(135deg, #450a0a 0%, #000000 100%)'; border = 'rgba(220, 38, 38, 0.4)'; }
 
             return { background: bg, borderColor: border };
-        };
-
-        const formatOverrideString = (ovStr) => {
-            if (!ovStr) return '';
-            const match = ovStr.match(/(.*)\s-\s₹([\d.,]+)\s\((.*)\)/);
-            if (match) return `${match[1].trim()} - ${formatMoney(match[2].replace(/,/g,''))} (${match[3].trim()})`;
-            return ovStr;
         };
 
         const GraphicCard = ({ cName, cTotal, u1Share, u2Share, overrides, isEdit, isEditMode, handleTotalChange, updateOverride, removeOverride, addOverride, user1Name, user2Name }) => {
@@ -160,8 +183,16 @@
             }, [cTotal, isEdit]);
 
             return (
-                <div style={getCardStyle(cName)} className="rounded-[32px] shadow-lg relative text-white border border-gray-200 dark:border-[#222] mb-4 transition-all hover:shadow-xl group">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-2xl z-0 rounded-[32px]"></div>
+                <div style={getCardStyle(cName)} className="rounded-[32px] shadow-lg relative text-white mb-4 transition-all hover:shadow-xl group overflow-hidden border">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-lg z-0"></div>
+                    
+                    <div className="absolute top-5 right-5 opacity-40 z-0">
+                        <svg width="32" height="24" viewBox="0 0 32 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4 0H28C30.2091 0 32 1.79086 32 4V20C32 22.2091 30.2091 24 28 24H4C1.79086 24 0 22.2091 0 20V4C0 1.79086 1.79086 0 4 0Z" fill="currentColor"/>
+                            <path d="M10 0V24M22 0V24M0 8H32M0 16H32" stroke="#000" strokeWidth="2" strokeOpacity="0.2"/>
+                        </svg>
+                    </div>
+
                     <div className="p-5 relative z-10 flex justify-between items-center cursor-pointer select-none" onClick={() => !isEdit && setIsExpanded(!isExpanded)}>
                         <span className="font-black text-lg text-white drop-shadow-md tracking-tight flex items-center gap-3">
                             {!isEdit && <i className={`fa-solid fa-chevron-${isExpanded ? 'up' : 'down'} text-[10px] bg-white/10 w-6 h-6 flex items-center justify-center rounded-full transition-transform`}></i>}
@@ -297,18 +328,6 @@
                 }
                 return () => { document.body.style.overflow = 'auto'; }
             }, [historyHubOpen, showHistory, borrowLedgerModalOpen, popupData, shareModalOpen]);
-
-            const toYYYYMM = (dateVal) => {
-                if (!dateVal) return '';
-                const s = String(dateVal);
-                if (s.includes('T')) {
-                    const d = new Date(s);
-                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                }
-                const parts = s.split('-');
-                if (parts.length >= 2) return `${parts[0]}-${parts[1].padStart(2, '0')}`;
-                return s.substring(0, 7); 
-            };
 
             useEffect(() => { localStorage.setItem('bs_chart_order', JSON.stringify(chartOrder)); }, [chartOrder]);
             useEffect(() => { localStorage.setItem('bs_minimized_charts', JSON.stringify(minimizedCharts)); }, [minimizedCharts]);
@@ -902,7 +921,7 @@
                             if (!ov || !ov.owner) return;
                             if (ov.owner === userName || ov.owner === 'Split') {
                                 const dedAmt = ov.owner === userName ? (parseFloat(ov.amount) || 0) : (parseFloat(ov.amount) || 0) / 2;
-                                if (DEFAULT_OFFLINE_SPends.some(def => (ov.desc || '').toLowerCase().includes(def.toLowerCase()))) { hhSpends.push({ desc: `${ov.desc} (${cName})`, amount: dedAmt }); hhTotal += dedAmt; } 
+                                if (DEFAULT_OFFLINE_SPENDS.some(def => (ov.desc || '').toLowerCase().includes(def.toLowerCase()))) { hhSpends.push({ desc: `${ov.desc} (${cName})`, amount: dedAmt }); hhTotal += dedAmt; } 
                                 else { specificDeds.push({ desc: `${ov.desc} (${cName})`, amount: dedAmt }); dedTotal += dedAmt; }
                                 cardBaseShare -= dedAmt;
                             }
@@ -1004,16 +1023,18 @@
                                             <XAxis dataKey="name" tick={{fontSize: 10, fontWeight: 'bold'}} tickMargin={10} axisLine={false} tickLine={false} />
                                             <YAxis tickFormatter={(val) => `₹${val/1000}k`} tick={{fontSize: 10, fontWeight: 'bold'}} axisLine={false} tickLine={false} />
                                             <Tooltip content={<CustomBarTooltip />} cursor={{fill: 'rgba(150, 150, 150, 0.1)', radius: 8}} />
-                                            <Bar dataKey={user1Name} stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} maxBarSize={30} />
                                             <Bar dataKey={user2Name} stackId="a" fill="#a855f7" radius={[6, 6, 0, 0]} maxBarSize={30} />
+                                            <Bar dataKey={user1Name} stackId="a" fill="#3b82f6" radius={[0, 0, 4, 4]} maxBarSize={30} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 )}
                                 {id === 'pie' && !isMin && (
                                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                                        <div className="flex flex-col items-start gap-1.5 mt-1">
-                                            <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0"></div><span className="text-[11px] font-black text-blue-500 tracking-wide leading-none mt-px">{user1Name}</span></div>
-                                            <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0"></div><span className="text-[11px] font-black text-purple-500 tracking-wide leading-none mt-px">{user2Name}</span></div>
+                                        <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1.5 mt-2">
+                                            <div className="w-2.5 h-2.5 rounded-full bg-blue-500 self-center"></div>
+                                            <span className="text-[11px] font-black text-blue-500 tracking-wide leading-none self-center">{user1Name}</span>
+                                            <div className="w-2.5 h-2.5 rounded-full bg-purple-500 self-center"></div>
+                                            <span className="text-[11px] font-black text-purple-500 tracking-wide leading-none self-center">{user2Name}</span>
                                         </div>
                                     </div>
                                 )}
@@ -1413,7 +1434,7 @@
                                                         {settledArchiveBorrows.map(b => {
                                                             const isExpanded = expandedBorrow === b.id;
                                                             return (
-                                                                <div key={b.id} className="bg-gray-100 dark:bg-[#1e1e1e] p-5 rounded-[28px] border border-gray-200 dark:border-[#333] opacity-70 hover:opacity-100 transition-opacity">
+                                                                <div key={b.id} className="bg-gray-100 dark:bg-[#1a1a1a] p-5 rounded-[28px] border border-gray-200 dark:border-[#333] opacity-70 hover:opacity-100 transition-opacity">
                                                                     <div className="flex-1 cursor-pointer" onClick={() => setExpandedBorrow(isExpanded ? null : b.id)}>
                                                                         <div className="flex justify-between items-start mb-1">
                                                                             <div>
@@ -1507,7 +1528,7 @@
                     </nav>
 
                     {snapshotPayload && (
-                        <div className="fixed top-[-9999px] left-[-9999px] z-[-1] p-8">
+                        <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '500px', padding: '20px' }}>
                             <div id="offscreen-render" className="bg-[#1a1a1a] rounded-[32px] p-8 w-[500px] text-white shadow-2xl border border-[#333]">
                                 <div className="flex items-center gap-4 mb-8 pb-5 border-b border-[#333]">
                                     <i className="fa-solid fa-chart-pie text-teal-400 text-3xl"></i>
@@ -1532,9 +1553,9 @@
                                         </div>
                                         <div className="space-y-3.5">
                                             {snapshotPayload.hhSpends.map((item, i) => (
-                                                <div key={i} className="flex justify-between text-[15px] text-gray-300">
-                                                    <span className="flex items-center gap-3 truncate pr-2"><i className="fa-solid fa-angle-right text-[#14b8a6]/70 text-[11px]"></i>{item.desc}</span>
-                                                    <span className="font-bold text-white">{formatMoney(item.amount)}</span>
+                                                <div key={i} className="flex justify-between text-[15px] text-gray-300 py-1">
+                                                    <span className="flex items-center gap-3 truncate pr-2 leading-relaxed pb-0.5"><i className="fa-solid fa-angle-right text-[#14b8a6]/70 text-[11px]"></i>{item.desc}</span>
+                                                    <span className="font-bold text-white leading-relaxed pb-0.5">{formatMoney(item.amount)}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -1547,9 +1568,9 @@
                                         </div>
                                         <div className="space-y-3.5">
                                             {snapshotPayload.ccSpends.map((item, i) => (
-                                                <div key={i} className="flex justify-between text-[15px] text-gray-300">
-                                                    <span className="flex items-center gap-3 truncate pr-2"><i className="fa-regular fa-credit-card text-[#3b82f6]/70 text-[11px]"></i>{item.desc}</span>
-                                                    <span className="font-bold text-white">{formatMoney(item.amount)}</span>
+                                                <div key={i} className="flex justify-between text-[15px] text-gray-300 py-1">
+                                                    <span className="flex items-center gap-3 truncate pr-2 leading-relaxed pb-0.5"><i className="fa-regular fa-credit-card text-[#3b82f6]/70 text-[11px]"></i>{item.desc}</span>
+                                                    <span className="font-bold text-white leading-relaxed pb-0.5">{formatMoney(item.amount)}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -1562,9 +1583,9 @@
                                         </div>
                                         <div className="space-y-3.5">
                                             {snapshotPayload.adhocSpends.map((item, i) => (
-                                                <div key={i} className="flex justify-between text-[15px] text-gray-300">
-                                                    <span className="flex items-center gap-3 truncate pr-2"><i className="fa-solid fa-tag text-[#a855f7]/70 text-[11px]"></i>{item.desc}</span>
-                                                    <span className="font-bold text-white">{formatMoney(item.amount)}</span>
+                                                <div key={i} className="flex justify-between text-[15px] text-gray-300 py-1">
+                                                    <span className="flex items-center gap-3 truncate pr-2 leading-relaxed pb-0.5"><i className="fa-solid fa-tag text-[#a855f7]/70 text-[11px]"></i>{item.desc}</span>
+                                                    <span className="font-bold text-white leading-relaxed pb-0.5">{formatMoney(item.amount)}</span>
                                                 </div>
                                             ))}
                                         </div>
