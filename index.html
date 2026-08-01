@@ -1584,9 +1584,8 @@
                                         <i className="fa-solid fa-chart-pie text-teal-400 text-4xl"></i>
                                         <h2 className="text-3xl font-black tracking-tight">{snapshotPayload.scope === 'All' ? `${snapshotPayload.monthName} Summary` : (snapshotPayload.scope.includes('Only') ? snapshotPayload.scope : `${snapshotPayload.scope}'s Breakdown`)}</h2>
                                     </div>
-                                    <div className="w-10 h-10 rounded-full bg-[#252525] flex items-center justify-center text-gray-400"><i className="fa-solid fa-xmark text-lg"></i></div>
                                 </div>
-                                {snapshotPayload.scope === 'All' && (
+                                {snapshotPayload.scope === 'All' ? (
                                     <div className="mb-8">
                                         <div className="flex justify-between items-end mb-5">
                                             <span className="text-gray-400 text-[11px] font-black uppercase tracking-widest">Total Spends</span>
@@ -1595,6 +1594,13 @@
                                         <div className="flex justify-between text-lg border-b border-[#333] pb-5">
                                             <span><span className="text-blue-400 font-bold mr-2">{user1Name}</span>{formatMoney(snapshotPayload.mU1)}</span>
                                             <span><span className="text-purple-400 font-bold mr-2">{user2Name}</span>{formatMoney(snapshotPayload.mU2)}</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="mb-8 border-b border-[#333] pb-5">
+                                        <div className="flex justify-between items-end">
+                                            <span className="text-gray-400 text-[11px] font-black uppercase tracking-widest">Total Spend</span>
+                                            <span className="text-4xl font-black tracking-tighter">{formatMoney(snapshotPayload.hhTotal + snapshotPayload.ccTotal + snapshotPayload.adhocTotal)}</span>
                                         </div>
                                     </div>
                                 )}
